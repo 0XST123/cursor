@@ -17,12 +17,6 @@ class BitcoinWallet {
             // Initialize elliptic curve
             this.ec = new elliptic.ec('secp256k1');
             
-            console.log('Library Status:', {
-                'CryptoJS': typeof CryptoJS !== 'undefined',
-                'elliptic': typeof elliptic !== 'undefined',
-                'Buffer': typeof Buffer !== 'undefined'
-            });
-            
             console.log('BitcoinWallet initialized successfully');
         } catch (error) {
             console.error('Failed to initialize BitcoinWallet:', error);
