@@ -161,19 +161,20 @@ class WalletFinder {
     }
 
     getWalletStatus(addressInfo) {
-        if (!addressInfo || addressInfo.error) {
+        // First check if we have valid data
+        if (!addressInfo || !addressInfo.hasOwnProperty('balance') || !addressInfo.hasOwnProperty('totalTransactions')) {
+            console.log('Invalid address info:', addressInfo);
             return {
                 type: 'invalid',
                 text: 'Не валидный'
             };
         }
 
-        const balance = addressInfo.balance || 0;
-        
-        if (balance >= 0.0001) {
+        // Now we know we have valid data
+        if (addressInfo.balance >= 0.0001) {
             return {
                 type: 'valuable',
-                text: `Баланс: ${balance.toFixed(8)} BTC`
+                text: `Баланс: ${addressInfo.balance.toFixed(8)} BTC`
             };
         }
 
@@ -190,19 +191,18 @@ class WalletFinder {
         };
     }
 
-    addResultToTable(walletData, addressInfo) {
+    addResultToTable(walletData, info) {
         const row = document.createElement('tr');
-        const balance = addressInfo.balance || 0;
         
-        if (balance > 0) {
+        if (info.balance > 0) {
             row.classList.add('has-balance');
         }
         
         row.innerHTML = `
             <td>${walletData.address}</td>
             <td>${walletData.privateKey}</td>
-            <td class="balance-column">${balance.toFixed(8)} BTC</td>
-            <td class="status-${addressInfo.status.type}">${addressInfo.status.text}</td>
+            <td class="balance-column">${info.balance.toFixed(8)} BTC</td>
+            <td class="status-${info.status.type}">${info.status.text}</td>
         `;
         
         this.resultsBody.appendChild(row);
@@ -232,35 +232,40 @@ class WalletFinder {
             if (!this.isRunning) break;
 
             try {
+                // Generate wallet data
                 const walletData = this.wallet.generateWallet(phrase);
+                
+                // Validate address before API call
+                const validation = this.wallet.validateAddress(walletData.address);
+                if (!validation.isValid) {
+                    console.log('Skipping invalid address:', walletData.address);
+                    continue;
+                }
+                
+                // Check address on blockchain
                 const addressInfo = await this.api.checkAddress(walletData.address);
                 this.checkedCount++;
                 
-                const balance = addressInfo.balance || 0;
+                // Get wallet status based on addressInfo
                 const status = this.getWalletStatus(addressInfo);
                 
-                // Add to table
-                const row = document.createElement('tr');
-                if (balance > 0) {
-                    row.classList.add('has-balance');
-                }
-                
-                row.innerHTML = `
-                    <td>${walletData.address}</td>
-                    <td>${walletData.privateKey}</td>
-                    <td class="balance-column">${balance.toFixed(8)} BTC</td>
-                    <td class="status-${status.type}">${status.text}</td>
-                `;
-                
-                this.resultsBody.appendChild(row);
-                
-                // Update stats
+                // Only process valid addresses
                 if (status.type !== 'invalid') {
+                    // Update stats
                     this.foundCount++;
-                    this.totalBtcFound += balance;
+                    this.totalBtcFound += addressInfo.balance;
                     this.stats[status.type]++;
+                    
+                    // Add to table only valid addresses
+                    this.addResultToTable(walletData, {
+                        balance: addressInfo.balance,
+                        status: status
+                    });
+                } else {
+                    console.log('Skipping invalid address result:', walletData.address);
                 }
                 
+                // Update UI
                 this.updateStats();
                 await this.updateApiLimit();
                 
