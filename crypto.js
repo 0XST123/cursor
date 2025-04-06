@@ -102,8 +102,11 @@ class BitcoinWallet {
                 throw new Error('Пустой публичный ключ');
             }
             
+            // Convert hex string to WordArray
+            const publicKeyWordArray = CryptoJS.enc.Hex.parse(publicKeyHex);
+            
             // Step 1: SHA-256 of public key
-            const sha256 = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(publicKeyHex));
+            const sha256 = CryptoJS.SHA256(publicKeyWordArray);
             
             // Step 2: RIPEMD-160 of SHA-256
             const ripemd160 = CryptoJS.RIPEMD160(sha256);
@@ -124,36 +127,30 @@ class BitcoinWallet {
             
             // Step 7: Convert to base58
             const bytes = Buffer.from(binaryAddress, 'hex');
-            const address = this.base58Encode(bytes);
+            let result = '';
+            
+            // Manual base58 encoding
+            const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+            let num = BigInt('0x' + bytes.toString('hex'));
+            const base = BigInt(58);
+            
+            while (num > BigInt(0)) {
+                const mod = num % base;
+                result = ALPHABET[Number(mod)] + result;
+                num = num / base;
+            }
+            
+            // Add leading zeros
+            for (let i = 0; i < bytes.length && bytes[i] === 0; i++) {
+                result = '1' + result;
+            }
             
             console.log('Bitcoin address generated successfully');
-            return address;
+            return result;
         } catch (error) {
             console.error('Error generating address:', error);
             throw new Error(`Ошибка генерации адреса: ${error.message}`);
         }
-    }
-
-    // Base58 encoding alphabet
-    base58Encode(buffer) {
-        const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-        let num = BigInt('0x' + buffer.toString('hex'));
-        const base = BigInt(58);
-        const zero = BigInt(0);
-        let result = '';
-        
-        while (num > zero) {
-            const remainder = Number(num % base);
-            result = ALPHABET[remainder] + result;
-            num = num / base;
-        }
-        
-        // Add leading zeros
-        for (let i = 0; i < buffer.length && buffer[i] === 0; i++) {
-            result = '1' + result;
-        }
-        
-        return result;
     }
 
     // Generate address from private key
