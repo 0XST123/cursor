@@ -134,9 +134,9 @@
             // Load application files in sequence
             console.log('Loading application files...');
             Promise.all([
-                loadScript('crypto.js'),
-                loadScript('api.js'),
-                loadScript('main.js')
+                loadScript('/cursor/crypto.js'),
+                loadScript('/cursor/api.js'),
+                loadScript('/cursor/main.js')
             ]).then(() => {
                 console.log('All application files loaded');
                 try {
