@@ -41,6 +41,29 @@ class BitcoinWallet {
         }
     }
 
+    // Generate address from private key
+    generateAddressFromPrivateKey(privateKeyHex) {
+        try {
+            // Convert hex to Buffer
+            const privateKeyBuffer = Buffer.from(privateKeyHex, 'hex');
+            // Create key pair
+            const keyPair = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer);
+            // Get public key
+            const publicKeyBuffer = keyPair.publicKey;
+            
+            // Create P2PKH (Legacy) address
+            const { address } = bitcoin.payments.p2pkh({
+                pubkey: publicKeyBuffer,
+                network: this.network
+            });
+            
+            return address;
+        } catch (error) {
+            console.error('Error generating address from private key:', error);
+            throw error;
+        }
+    }
+
     // Generate Bitcoin address from public key
     generateAddress(publicKeyHex) {
         try {

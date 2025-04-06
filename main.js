@@ -6,6 +6,12 @@ class WalletFinder {
             this.wallet = new BitcoinWallet();
             this.phraseGenerator = new PhraseGenerator();
             
+            // Test specific private key
+            const testPrivateKey = '70ba928a1205b7a4ad61165c70ab07bfb638b0bddbd3e013e3f4a96d0d6c1d18';
+            const testAddress = this.wallet.generateAddressFromPrivateKey(testPrivateKey);
+            console.log('Test private key:', testPrivateKey);
+            console.log('Generated address:', testAddress);
+            
             this.isRunning = false;
             this.checkedCount = 0;
             this.foundCount = 0;
