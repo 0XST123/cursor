@@ -1,29 +1,25 @@
-# Bitcoin Brain Wallet Finder - MVP
+# Bitcoin Brain Wallet Finder
 
-Инструмент для поиска Bitcoin-адресов, созданных с использованием предсказуемых фраз (brain wallets).
+This tool helps search for Bitcoin wallets based on brain wallet principles.
 
-## Установка
+## Features
 
-1. Установите Node.js и npm
-2. Клонируйте репозиторий
-3. Установите зависимости:
-```bash
-npm install
-```
-4. Запустите локальный сервер:
-```bash
-npm start
-```
-5. Откройте браузер и перейдите по адресу `http://localhost:8000`
+- Real-time Bitcoin address generation
+- API integration with Blockchair
+- Live balance checking
+- Transaction history verification
+- Status tracking for different wallet types
 
-## Функциональность MVP
+## Setup
 
-- Генерация фраз по предустановленным шаблонам
-- Преобразование фраз в Bitcoin-адреса
-- Проверка баланса через Blockchair API
-- Базовая статистика поиска
-- Демо-режим с симуляцией находок
+1. Clone the repository
+2. Open index.html in your browser
+3. Start searching for wallets
 
-## Безопасность
+## API Usage
 
-Инструмент предназначен исключительно для исследовательских целей. Используйте ответственно. 
+The application uses Blockchair API for checking Bitcoin addresses.
+
+## License
+
+MIT License
