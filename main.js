@@ -13,7 +13,6 @@ class WalletFinder {
             this.totalBtcFound = 0;
             this.stats = {
                 new: 0,
-                used: 0,
                 valuable: 0
             };
             
@@ -160,34 +159,17 @@ class WalletFinder {
         this.stopButton.disabled = true;
     }
 
-    getWalletStatus(addressInfo) {
-        // First check if we have valid data
-        if (!addressInfo || !addressInfo.hasOwnProperty('balance') || !addressInfo.hasOwnProperty('totalTransactions')) {
-            console.log('Invalid address info:', addressInfo);
-            return {
-                type: 'invalid',
-                text: 'Не валидный'
-            };
-        }
-
-        // Now we know we have valid data
-        if (addressInfo.balance >= 0.0001) {
+    getWalletStatus(balance) {
+        if (balance >= 0.0001) {
             return {
                 type: 'valuable',
-                text: `Баланс: ${addressInfo.balance.toFixed(8)} BTC`
-            };
-        }
-
-        if (addressInfo.totalTransactions === 0) {
-            return {
-                type: 'new',
-                text: 'Новый'
+                text: `Баланс: ${balance.toFixed(8)} BTC`
             };
         }
 
         return {
-            type: 'used',
-            text: `Использовался (${addressInfo.totalTransactions} tx)`
+            type: 'new',
+            text: 'Новый'
         };
     }
 
@@ -220,7 +202,6 @@ class WalletFinder {
         
         // Update wallet type counts
         document.getElementById('newCount').textContent = this.stats.new;
-        document.getElementById('usedCount').textContent = this.stats.used;
         document.getElementById('valuableCount').textContent = this.stats.valuable;
     }
 
@@ -235,35 +216,23 @@ class WalletFinder {
                 // Generate wallet data
                 const walletData = this.wallet.generateWallet(phrase);
                 
-                // Validate address before API call
-                const validation = this.wallet.validateAddress(walletData.address);
-                if (!validation.isValid) {
-                    console.log('Skipping invalid address:', walletData.address);
-                    continue;
-                }
-                
-                // Check address on blockchain
-                const addressInfo = await this.api.checkAddress(walletData.address);
+                // Check balance
+                const balance = await this.api.checkAddress(walletData.address);
                 this.checkedCount++;
                 
-                // Get wallet status based on addressInfo
-                const status = this.getWalletStatus(addressInfo);
+                // Get status based on balance
+                const status = this.getWalletStatus(balance);
                 
-                // Only process valid addresses
-                if (status.type !== 'invalid') {
-                    // Update stats
-                    this.foundCount++;
-                    this.totalBtcFound += addressInfo.balance;
-                    this.stats[status.type]++;
-                    
-                    // Add to table only valid addresses
-                    this.addResultToTable(walletData, {
-                        balance: addressInfo.balance,
-                        status: status
-                    });
-                } else {
-                    console.log('Skipping invalid address result:', walletData.address);
-                }
+                // Update stats
+                this.foundCount++;
+                this.totalBtcFound += balance;
+                this.stats[status.type]++;
+                
+                // Add to table
+                this.addResultToTable(walletData, {
+                    balance: balance,
+                    status: status
+                });
                 
                 // Update UI
                 this.updateStats();
