@@ -73,13 +73,12 @@ h1 {
 }
 
 .stat-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    background-color: white;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px 15px;
+    border-radius: 6px;
+    margin: 5px;
+    flex: 1;
+    min-width: 200px;
 }
 
 /* Wallet Types Panel */
@@ -276,6 +275,29 @@ tr:hover {
 .private-key-cell {
     font-family: monospace;
     font-size: 0.9em;
+}
+
+/* Row with balance highlighting */
+.has-balance {
+    background-color: rgba(76, 175, 80, 0.1) !important;
+    border-left: 4px solid #4CAF50;
+}
+
+.has-balance td {
+    font-weight: 500;
+}
+
+/* Balance column styling */
+.balance-column {
+    font-family: monospace;
+    color: #4CAF50;
+    font-weight: 500;
+}
+
+#foundBtcAmount {
+    color: #4CAF50;
+    font-weight: bold;
+    font-family: monospace;
 }
 
 /* Responsive Design */

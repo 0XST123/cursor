@@ -10,8 +10,8 @@ class WalletFinder {
             this.isRunning = false;
             this.checkedCount = 0;
             this.foundCount = 0;
+            this.totalBtcFound = 0;
             this.stats = {
-                invalid: 0,
                 new: 0,
                 used: 0,
                 valuable: 0
@@ -93,7 +93,8 @@ class WalletFinder {
             this.startButton = document.getElementById('startButton');
             this.stopButton = document.getElementById('stopButton');
             this.checkedCountElement = document.getElementById('checkedCount');
-            this.foundCountElement = document.getElementById('foundCount');
+            this.foundAddressCountElement = document.getElementById('foundAddressCount');
+            this.foundBtcAmountElement = document.getElementById('foundBtcAmount');
             this.speedElement = document.getElementById('speed');
             this.apiLimitElement = document.getElementById('apiLimit');
             this.progressBar = document.getElementById('progressBar');
@@ -129,6 +130,7 @@ class WalletFinder {
             this.resultsBody.innerHTML = '';
             this.checkedCount = 0;
             this.foundCount = 0;
+            this.totalBtcFound = 0;
             Object.keys(this.stats).forEach(key => this.stats[key] = 0);
 
             while (this.isRunning) {
@@ -147,7 +149,6 @@ class WalletFinder {
             console.error('Critical error in start:', error);
             alert(`Критическая ошибка: ${error.message}`);
         } finally {
-            // Ensure buttons are in correct state
             this.startButton.disabled = false;
             this.stopButton.disabled = true;
         }
@@ -160,7 +161,6 @@ class WalletFinder {
     }
 
     getWalletStatus(addressInfo) {
-        // Check if address is invalid
         if (!addressInfo || addressInfo.error) {
             return {
                 type: 'invalid',
@@ -168,7 +168,15 @@ class WalletFinder {
             };
         }
 
-        // Check if it's a new address
+        const balance = addressInfo.balance || 0;
+        
+        if (balance >= 0.0001) {
+            return {
+                type: 'valuable',
+                text: `Баланс: ${balance.toFixed(8)} BTC`
+            };
+        }
+
         if (addressInfo.totalTransactions === 0) {
             return {
                 type: 'new',
@@ -176,11 +184,44 @@ class WalletFinder {
             };
         }
 
-        // If has transactions
         return {
             type: 'used',
-            text: 'Использовался'
+            text: `Использовался (${addressInfo.totalTransactions} tx)`
         };
+    }
+
+    addResultToTable(walletData, addressInfo) {
+        const row = document.createElement('tr');
+        const balance = addressInfo.balance || 0;
+        
+        if (balance > 0) {
+            row.classList.add('has-balance');
+        }
+        
+        row.innerHTML = `
+            <td>${walletData.address}</td>
+            <td>${walletData.privateKey}</td>
+            <td class="balance-column">${balance.toFixed(8)} BTC</td>
+            <td class="status-${addressInfo.status.type}">${addressInfo.status.text}</td>
+        `;
+        
+        this.resultsBody.appendChild(row);
+    }
+
+    updateStats() {
+        this.checkedCountElement.textContent = this.checkedCount;
+        this.foundAddressCountElement.textContent = this.foundCount;
+        this.foundBtcAmountElement.textContent = this.totalBtcFound.toFixed(8) + ' BTC';
+        
+        // Calculate and update speed
+        const elapsedSeconds = (Date.now() - this.startTime) / 1000;
+        const speed = (this.checkedCount / elapsedSeconds).toFixed(2);
+        this.speedElement.textContent = speed;
+        
+        // Update wallet type counts
+        document.getElementById('newCount').textContent = this.stats.new;
+        document.getElementById('usedCount').textContent = this.stats.used;
+        document.getElementById('valuableCount').textContent = this.stats.valuable;
     }
 
     async processNextBatch() {
@@ -196,136 +237,36 @@ class WalletFinder {
                 const addressInfo = await this.api.checkAddress(walletData.address);
                 this.checkedCount++;
                 
-                // Get wallet status and update stats
-                const status = this.getWalletStatus(addressInfo);
-                this.stats[status.type]++;
+                const balance = addressInfo.balance || 0;
+                addressInfo.status = this.getWalletStatus(addressInfo);
                 
-                // Add to table
-                this.addResultToTable(walletData, status);
-                
-                // Update found count for used addresses
-                if (status.type === 'used') {
+                if (addressInfo.status.type !== 'invalid') {
                     this.foundCount++;
+                    this.totalBtcFound += balance;
+                    
+                    // Update stats
+                    this.stats[addressInfo.status.type]++;
+                    
+                    // Add to table
+                    this.addResultToTable(walletData, addressInfo);
                 }
                 
-                // Update stats after each address check
-                await this.updateStats();
+                this.updateStats();
+                await this.updateApiLimit();
+                
             } catch (error) {
-                console.error('Error checking address:', error);
-                // Count failed checks as invalid
-                this.stats.invalid++;
-                this.addResultToTable(walletData, { type: 'invalid', text: 'Не валидный' });
-                
-                // Only stop if API limit is reached
-                if (error.message === 'API limit reached') {
-                    throw error;
-                }
-                
-                // For other errors, continue with next phrase
-                continue;
+                console.error('Error processing address:', error);
+                throw error;
             }
         }
     }
 
-    addResultToTable(walletData, status) {
-        const row = document.createElement('tr');
-        
-        // Address cell with validation and copy button
-        const addressCell = document.createElement('td');
-        addressCell.className = 'address-cell';
-        
-        const addressValidation = this.wallet.validateAddress(walletData.address);
-        const addressValidationSpan = document.createElement('span');
-        addressValidationSpan.className = addressValidation.isValid ? 'valid-key' : 'invalid-key';
-        addressValidationSpan.textContent = addressValidation.isValid ? '✓ ' : '✗ ';
-        addressValidationSpan.title = addressValidation.isValid ? 
-            `Валидный ${addressValidation.format} адрес` : 
-            `Невалидный адрес: ${addressValidation.reason}`;
-        
-        const addressText = document.createElement('span');
-        addressText.className = 'address-text';
-        addressText.textContent = walletData.address;
-        
-        const copyButton = document.createElement('button');
-        copyButton.className = 'copy-button tooltip';
-        copyButton.innerHTML = `
-            <svg class="copy-icon" viewBox="0 0 24 24">
-                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-            </svg>
-        `;
-        copyButton.onclick = () => {
-            navigator.clipboard.writeText(walletData.address);
-            copyButton.classList.add('copied');
-            setTimeout(() => copyButton.classList.remove('copied'), 1000);
-        };
-        
-        addressCell.appendChild(addressValidationSpan);
-        addressCell.appendChild(addressText);
-        addressCell.appendChild(copyButton);
-        
-        // Private key cell with validation status
-        const privateKeyCell = document.createElement('td');
-        privateKeyCell.className = 'private-key-cell';
-        
-        const validation = this.wallet.validatePrivateKey(walletData.privateKey);
-        const validationSpan = document.createElement('span');
-        validationSpan.className = validation.isValid ? 'valid-key' : 'invalid-key';
-        validationSpan.textContent = validation.isValid ? '✓ ' : '✗ ';
-        validationSpan.title = validation.isValid ? 
-            'Валидный приватный ключ' : 
-            `Невалидный ключ: ${validation.reason}`;
-        
-        const privateKeyText = document.createElement('span');
-        privateKeyText.textContent = walletData.privateKey;
-        
-        privateKeyCell.appendChild(validationSpan);
-        privateKeyCell.appendChild(privateKeyText);
-        
-        // Status cell
-        const statusCell = document.createElement('td');
-        statusCell.className = `status-${status.type}`;
-        statusCell.textContent = status.text;
-        
-        // Add all cells to row
-        row.appendChild(addressCell);
-        row.appendChild(privateKeyCell);
-        row.appendChild(statusCell);
-        
-        // Add row to table
-        this.resultsBody.appendChild(row);
-
-        // Keep only last 100 results
-        while (this.resultsBody.children.length > 100) {
-            this.resultsBody.removeChild(this.resultsBody.firstChild);
-        }
-    }
-
-    updateStats() {
-        // Update counters
-        this.checkedCountElement.textContent = this.checkedCount;
-        this.foundCountElement.textContent = this.foundCount;
-        
-        // Update wallet type counts
-        document.getElementById('newCount').textContent = this.stats.new;
-        document.getElementById('usedCount').textContent = this.stats.used;
-        document.getElementById('valuableCount').textContent = this.stats.valuable;
-        
-        // Calculate and update speed
-        const elapsedTime = (Date.now() - this.startTime) / 1000;
-        const speed = Math.round(this.checkedCount / elapsedTime);
-        this.speedElement.textContent = speed;
-        
-        // Update API limit
-        this.apiLimitElement.textContent = this.api.getRequestsLeft();
-    }
-
     async updateApiLimit() {
         try {
-            const limit = this.api.getRequestsLeft();
+            const limit = await this.api.getRequestsLeft();
             this.apiLimitElement.textContent = limit;
         } catch (error) {
             console.error('Error updating API limit:', error);
-            this.apiLimitElement.textContent = 'Error';
         }
     }
 
