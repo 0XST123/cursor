@@ -7,9 +7,6 @@ class BitcoinWallet {
             if (typeof elliptic === 'undefined') {
                 throw new Error('elliptic library not loaded');
             }
-            if (typeof bitcoin === 'undefined') {
-                throw new Error('bitcoinjs-lib not loaded');
-            }
             if (typeof CryptoJS === 'undefined') {
                 throw new Error('CryptoJS library not loaded');
             }
@@ -19,8 +16,6 @@ class BitcoinWallet {
 
             // Initialize elliptic curve
             this.ec = new elliptic.ec('secp256k1');
-            // Use mainnet network
-            this.network = bitcoin.networks.bitcoin;
             
             console.log('Library Status:', {
                 'CryptoJS': typeof CryptoJS !== 'undefined',
@@ -38,9 +33,12 @@ class BitcoinWallet {
     // Generate private key from phrase using SHA-256
     generatePrivateKey(phrase) {
         try {
-            // Generate SHA256 hash of the phrase
-            const hash = bitcoin.crypto.sha256(Buffer.from(phrase));
-            return hash.toString('hex');
+            // Convert phrase to WordArray
+            const wordArray = CryptoJS.enc.Utf8.parse(phrase);
+            // Generate SHA256 hash
+            const hash = CryptoJS.SHA256(wordArray);
+            // Convert to hex string
+            return hash.toString(CryptoJS.enc.Hex);
         } catch (error) {
             console.error('Error generating private key:', error);
             throw error;
@@ -50,12 +48,10 @@ class BitcoinWallet {
     // Generate public key from private key
     generatePublicKey(privateKeyHex) {
         try {
-            // Convert hex to Buffer
-            const privateKeyBuffer = Buffer.from(privateKeyHex, 'hex');
-            // Create ECPair from private key
-            const keyPair = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer);
-            // Get public key
-            return keyPair.publicKey.toString('hex');
+            // Create key pair from private key
+            const keyPair = this.ec.keyFromPrivate(privateKeyHex, 'hex');
+            // Get public key in compressed format
+            return keyPair.getPublic(true, 'hex');
         } catch (error) {
             console.error('Error generating public key:', error);
             throw error;
@@ -65,14 +61,29 @@ class BitcoinWallet {
     // Generate Bitcoin address from public key
     generateAddress(publicKeyHex) {
         try {
-            // Convert hex to Buffer
-            const publicKeyBuffer = Buffer.from(publicKeyHex, 'hex');
+            // Step 1: SHA-256 of public key
+            const sha256 = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(publicKeyHex));
             
-            // Create P2PKH (Legacy) address
-            const { address } = bitcoin.payments.p2pkh({
-                pubkey: publicKeyBuffer,
-                network: this.network
-            });
+            // Step 2: RIPEMD-160 of SHA-256
+            const ripemd160 = CryptoJS.RIPEMD160(sha256);
+            
+            // Step 3: Add version byte (0x00 for mainnet)
+            const versionByte = '00';
+            const versionAndHash = versionByte + ripemd160.toString();
+            
+            // Step 4: Double SHA-256 for checksum
+            const firstSHA = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(versionAndHash));
+            const secondSHA = CryptoJS.SHA256(firstSHA);
+            
+            // Step 5: Take first 4 bytes of double SHA-256 as checksum
+            const checksum = secondSHA.toString().substring(0, 8);
+            
+            // Step 6: Add checksum to version + hash
+            const binaryAddress = versionAndHash + checksum;
+            
+            // Step 7: Convert to base58
+            const bytes = Buffer.from(binaryAddress, 'hex');
+            const address = this.base58Encode(bytes);
             
             return address;
         } catch (error) {
@@ -81,23 +92,33 @@ class BitcoinWallet {
         }
     }
 
+    // Base58 encoding alphabet
+    base58Encode(buffer) {
+        const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+        let num = BigInt('0x' + buffer.toString('hex'));
+        const base = BigInt(58);
+        const zero = BigInt(0);
+        let result = '';
+        
+        while (num > zero) {
+            const remainder = Number(num % base);
+            result = ALPHABET[remainder] + result;
+            num = num / base;
+        }
+        
+        // Add leading zeros
+        for (let i = 0; i < buffer.length && buffer[i] === 0; i++) {
+            result = '1' + result;
+        }
+        
+        return result;
+    }
+
     // Generate address from private key
     generateAddressFromPrivateKey(privateKeyHex) {
         try {
-            // Convert hex to Buffer
-            const privateKeyBuffer = Buffer.from(privateKeyHex, 'hex');
-            // Create key pair
-            const keyPair = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer);
-            // Get public key
-            const publicKeyBuffer = keyPair.publicKey;
-            
-            // Create P2PKH (Legacy) address
-            const { address } = bitcoin.payments.p2pkh({
-                pubkey: publicKeyBuffer,
-                network: this.network
-            });
-            
-            return address;
+            const publicKey = this.generatePublicKey(privateKeyHex);
+            return this.generateAddress(publicKey);
         } catch (error) {
             console.error('Error generating address from private key:', error);
             throw error;
@@ -115,14 +136,12 @@ class BitcoinWallet {
                 };
             }
 
-            const privateKeyBuffer = Buffer.from(privateKeyHex, 'hex');
-
             try {
                 // Try to create key pair
-                const keyPair = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer);
+                const keyPair = this.ec.keyFromPrivate(privateKeyHex, 'hex');
                 return {
                     isValid: true,
-                    publicKey: keyPair.publicKey.toString('hex')
+                    publicKey: keyPair.getPublic(true, 'hex')
                 };
             } catch (e) {
                 return {
@@ -149,25 +168,25 @@ class BitcoinWallet {
                 };
             }
 
-            try {
-                bitcoin.address.toOutputScript(address, this.network);
-                let format = 'Unknown';
-                
-                if (address.startsWith('1')) format = 'Legacy (P2PKH)';
-                else if (address.startsWith('3')) format = 'SegWit (P2SH)';
-                else if (address.startsWith('bc1q')) format = 'Native SegWit (P2WPKH)';
-                else if (address.startsWith('bc1p')) format = 'Taproot (P2TR)';
-                
-                return {
-                    isValid: true,
-                    format: format
-                };
-            } catch (e) {
+            // Check basic format
+            if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(address)) {
                 return {
                     isValid: false,
-                    reason: 'Invalid address format or checksum'
+                    reason: 'Invalid characters in address'
                 };
             }
+
+            // Determine format
+            let format = 'Unknown';
+            if (address.startsWith('1')) format = 'Legacy (P2PKH)';
+            else if (address.startsWith('3')) format = 'SegWit (P2SH)';
+            else if (address.startsWith('bc1q')) format = 'Native SegWit (P2WPKH)';
+            else if (address.startsWith('bc1p')) format = 'Taproot (P2TR)';
+            
+            return {
+                isValid: true,
+                format: format
+            };
         } catch (error) {
             console.error('Error validating address:', error);
             return {
