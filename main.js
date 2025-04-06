@@ -36,45 +36,51 @@ class WalletFinder {
                 'satoshi nakamoto 2009'
             ];
             
-            console.log('=== Testing Components ===');
+            console.log('%c=== Starting Component Tests ===', 'color: blue; font-weight: bold');
             
             // 1. Test PhraseGenerator
-            console.log('\nTesting PhraseGenerator:');
+            console.log('%c\n1. Testing PhraseGenerator:', 'color: green; font-weight: bold');
             const phrases = this.phraseGenerator.generatePhrases(3);
             phrases.forEach((phrase, i) => {
-                console.log(`Phrase ${i + 1}:`, phrase);
+                console.log(`%c  Phrase ${i + 1}: ${phrase}`, 'color: black');
             });
             
             // 2. Test BitcoinWallet
-            console.log('\nTesting BitcoinWallet:');
+            console.log('%c\n2. Testing BitcoinWallet:', 'color: green; font-weight: bold');
             
             // Test address validation
-            console.log('Address Validation Test:');
+            console.log('%c  2.1. Address Validation Test:', 'color: purple');
             const addressValidation = this.wallet.validateAddress(testCases[0]);
-            console.log('Known Address:', testCases[0]);
-            console.log('Validation Result:', addressValidation);
+            console.log('    Known Address:', testCases[0]);
+            console.log('    Validation Result:', addressValidation);
             
             // Test private key validation
-            console.log('\nPrivate Key Test:');
+            console.log('%c  2.2. Private Key Test:', 'color: purple');
             const keyValidation = this.wallet.validatePrivateKey(testCases[1]);
-            console.log('Test Key:', testCases[1]);
-            console.log('Validation Result:', keyValidation);
+            console.log('    Test Key:', testCases[1].substring(0, 8) + '...');
+            console.log('    Validation Result:', keyValidation);
             
             // Test wallet generation from phrase
-            console.log('\nWallet Generation Test:');
+            console.log('%c  2.3. Wallet Generation Test:', 'color: purple');
             const testWallet = this.wallet.generateWallet(testCases[2]);
-            console.log('From Phrase:', testCases[2]);
-            console.log('Generated Wallet:', testWallet);
+            console.log('    From Phrase:', testCases[2]);
+            console.log('    Generated Wallet:', {
+                phrase: testWallet.phrase,
+                privateKey: testWallet.privateKey.substring(0, 8) + '...',
+                publicKey: testWallet.publicKey.substring(0, 8) + '...',
+                address: testWallet.address
+            });
             
             // 3. Test BlockchairAPI
-            console.log('\nTesting BlockchairAPI:');
+            console.log('%c\n3. Testing BlockchairAPI:', 'color: green; font-weight: bold');
+            console.log('  Checking known address:', testCases[0]);
             const apiResponse = await this.api.checkAddress(testCases[0]);
-            console.log('API Response for known address:', apiResponse);
+            console.log('  API Response:', apiResponse);
             
-            console.log('\nAll tests completed successfully');
+            console.log('%c\n=== All tests completed successfully ===', 'color: blue; font-weight: bold');
             return true;
         } catch (error) {
-            console.error('Test execution failed:', error);
+            console.error('%cTest execution failed:', 'color: red; font-weight: bold', error);
             return false;
         }
     }
