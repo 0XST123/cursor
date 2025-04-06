@@ -1,5 +1,3 @@
-import BitcoinAPIFactory from './api.js';
-
 class WalletFinder {
     constructor(apiProvider = 'blockchain.info') {
         try {
@@ -27,63 +25,18 @@ class WalletFinder {
     }
 
     async runTests() {
+        console.log('Running tests...');
+        
+        // Test wallet generation
+        this.testWalletGeneration();
+        
+        // Test API
         try {
-            // Test cases
-            const testCases = [
-                // Известный использованный адрес
-                '1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF',
-                // Наш тестовый ключ
-                '70ba928a1205b7a4ad61165c70ab07bfb638b0bddbd3e013e3f4a96d0d6c1d18',
-                // Тестовая фраза
-                'satoshi nakamoto 2009'
-            ];
-            
-            console.log('%c=== Starting Component Tests ===', 'color: blue; font-weight: bold');
-            
-            // 1. Test PhraseGenerator
-            console.log('%c\n1. Testing PhraseGenerator:', 'color: green; font-weight: bold');
-            const phrases = this.phraseGenerator.generatePhrases(3);
-            phrases.forEach((phrase, i) => {
-                console.log(`%c  Phrase ${i + 1}: ${phrase}`, 'color: black');
-            });
-            
-            // 2. Test BitcoinWallet
-            console.log('%c\n2. Testing BitcoinWallet:', 'color: green; font-weight: bold');
-            
-            // Test address validation
-            console.log('%c  2.1. Address Validation Test:', 'color: purple');
-            const addressValidation = this.wallet.validateAddress(testCases[0]);
-            console.log('    Known Address:', testCases[0]);
-            console.log('    Validation Result:', addressValidation);
-            
-            // Test private key validation
-            console.log('%c  2.2. Private Key Test:', 'color: purple');
-            const keyValidation = this.wallet.validatePrivateKey(testCases[1]);
-            console.log('    Test Key:', testCases[1].substring(0, 8) + '...');
-            console.log('    Validation Result:', keyValidation);
-            
-            // Test wallet generation from phrase
-            console.log('%c  2.3. Wallet Generation Test:', 'color: purple');
-            const testWallet = this.wallet.generateWallet(testCases[2]);
-            console.log('    From Phrase:', testCases[2]);
-            console.log('    Generated Wallet:', {
-                phrase: testWallet.phrase,
-                privateKey: testWallet.privateKey.substring(0, 8) + '...',
-                publicKey: testWallet.publicKey.substring(0, 8) + '...',
-                address: testWallet.address
-            });
-            
-            // 3. Test BlockchairAPI
-            console.log('%c\n3. Testing BlockchairAPI:', 'color: green; font-weight: bold');
-            console.log('  Checking known address:', testCases[0]);
-            const apiResponse = await this.api.checkAddress(testCases[0]);
-            console.log('  API Response:', apiResponse);
-            
-            console.log('%c\n=== All tests completed successfully ===', 'color: blue; font-weight: bold');
-            return true;
+            const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Bitcoin genesis address
+            const balance = await this.api.checkAddress(testAddress);
+            console.log('API test result:', { address: testAddress, balance: balance });
         } catch (error) {
-            console.error('%cTest execution failed:', 'color: red; font-weight: bold', error);
-            return false;
+            console.error('API test failed:', error);
         }
     }
 
@@ -168,7 +121,6 @@ class WalletFinder {
                 text: `Баланс: ${balance.toFixed(8)} BTC`
             };
         }
-
         return {
             type: 'new',
             text: 'Новый'
@@ -207,6 +159,12 @@ class WalletFinder {
         // Update wallet type counts
         document.getElementById('newCount').textContent = this.stats.new;
         document.getElementById('valuableCount').textContent = this.stats.valuable;
+        
+        // Update API limit if available
+        const requestsLeft = this.api.getRequestsLeft();
+        if (requestsLeft !== Infinity) {
+            this.apiLimitElement.textContent = requestsLeft;
+        }
     }
 
     async processNextBatch() {
@@ -260,41 +218,10 @@ class WalletFinder {
         }
     }
 
-    // Test function to verify wallet generation
     testWalletGeneration() {
-        try {
-            console.log('Starting wallet generation test...');
-            
-            // Generate a test phrase
-            const phraseGenerator = new PhraseGenerator();
-            const phrase = phraseGenerator.generatePhrase();
-            console.log('Generated test phrase:', phrase);
-            
-            // Generate wallet
-            const wallet = this.wallet.generateWallet(phrase);
-            console.log('Generated wallet:', {
-                phrase: wallet.phrase,
-                privateKey: wallet.privateKey.substring(0, 8) + '...',
-                publicKey: wallet.publicKey.substring(0, 8) + '...',
-                address: wallet.address
-            });
-            
-            // Validate the generated address
-            const validation = this.wallet.validateAddress(wallet.address);
-            console.log('Address validation result:', validation);
-            
-            return {
-                success: true,
-                wallet: wallet,
-                validation: validation
-            };
-        } catch (error) {
-            console.error('Wallet generation test failed:', error);
-            return {
-                success: false,
-                error: error.message
-            };
-        }
+        const phrase = 'test phrase';
+        const walletData = this.wallet.generateWallet(phrase);
+        console.log('Wallet generation test result:', walletData);
     }
 }
 
