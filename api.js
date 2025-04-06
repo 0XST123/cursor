@@ -15,8 +15,8 @@ class BlockchairAPI {
         // Ensure we don't exceed rate limits
         const now = Date.now();
         const timeSinceLastRequest = now - this.lastRequestTime;
-        if (timeSinceLastRequest < 1000) { // Minimum 1 second between requests
-            await new Promise(resolve => setTimeout(resolve, 1000 - timeSinceLastRequest));
+        if (timeSinceLastRequest < 100) { // Minimum 100ms between requests
+            await new Promise(resolve => setTimeout(resolve, 100 - timeSinceLastRequest));
         }
 
         try {
