@@ -176,14 +176,16 @@ class WalletFinder {
     addResultToTable(walletData, info) {
         const row = document.createElement('tr');
         
-        if (info.balance > 0) {
+        // Проверяем, что баланс это число и больше 0
+        const balance = Number(info.balance) || 0;
+        if (balance > 0) {
             row.classList.add('has-balance');
         }
         
         row.innerHTML = `
             <td>${walletData.address}</td>
             <td>${walletData.privateKey}</td>
-            <td class="balance-column">${info.balance.toFixed(8)} BTC</td>
+            <td class="balance-column">${balance.toFixed(8)} BTC</td>
             <td class="status-${info.status.type}">${info.status.text}</td>
         `;
         
