@@ -231,24 +231,34 @@ class WalletFinder {
         for (const phrase of phrases) {
             if (!this.isRunning) break;
 
-            const walletData = this.wallet.generateWallet(phrase);
-            
             try {
+                const walletData = this.wallet.generateWallet(phrase);
                 const addressInfo = await this.api.checkAddress(walletData.address);
                 this.checkedCount++;
                 
                 const balance = addressInfo.balance || 0;
-                addressInfo.status = this.getWalletStatus(addressInfo);
+                const status = this.getWalletStatus(addressInfo);
                 
-                if (addressInfo.status.type !== 'invalid') {
+                // Add to table
+                const row = document.createElement('tr');
+                if (balance > 0) {
+                    row.classList.add('has-balance');
+                }
+                
+                row.innerHTML = `
+                    <td>${walletData.address}</td>
+                    <td>${walletData.privateKey}</td>
+                    <td class="balance-column">${balance.toFixed(8)} BTC</td>
+                    <td class="status-${status.type}">${status.text}</td>
+                `;
+                
+                this.resultsBody.appendChild(row);
+                
+                // Update stats
+                if (status.type !== 'invalid') {
                     this.foundCount++;
                     this.totalBtcFound += balance;
-                    
-                    // Update stats
-                    this.stats[addressInfo.status.type]++;
-                    
-                    // Add to table
-                    this.addResultToTable(walletData, addressInfo);
+                    this.stats[status.type]++;
                 }
                 
                 this.updateStats();
@@ -256,7 +266,9 @@ class WalletFinder {
                 
             } catch (error) {
                 console.error('Error processing address:', error);
-                throw error;
+                if (error.message === 'API limit reached') {
+                    throw error;
+                }
             }
         }
     }
