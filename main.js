@@ -198,46 +198,43 @@ class WalletFinder {
             <svg class="copy-icon" viewBox="0 0 24 24">
                 <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
             </svg>
-            <span class="tooltiptext">Копировать</span>
         `;
-        copyButton.addEventListener('click', () => {
-            navigator.clipboard.writeText(walletData.address).then(() => {
-                const tooltip = copyButton.querySelector('.tooltiptext');
-                tooltip.textContent = 'Скопировано!';
-                tooltip.classList.add('show');
-                setTimeout(() => {
-                    tooltip.classList.remove('show');
-                    tooltip.textContent = 'Копировать';
-                }, 1500);
-            });
-        });
+        copyButton.onclick = () => {
+            navigator.clipboard.writeText(walletData.address);
+            copyButton.classList.add('copied');
+            setTimeout(() => copyButton.classList.remove('copied'), 1000);
+        };
         
         addressCell.appendChild(addressText);
         addressCell.appendChild(copyButton);
         
-        // Private key cell
+        // Private key cell with validation status
         const privateKeyCell = document.createElement('td');
-        privateKeyCell.className = 'private-key';
-        privateKeyCell.textContent = walletData.privateKey;
+        privateKeyCell.className = 'private-key-cell';
         
-        // Balance cell
-        const balanceCell = document.createElement('td');
-        balanceCell.className = 'balance';
-        const balanceBTC = info ? (info.balance || 0) / 100000000 : 0;
-        balanceCell.textContent = `${balanceBTC.toFixed(8)} BTC`;
+        const validation = this.wallet.validatePrivateKey(walletData.privateKey);
+        const validationSpan = document.createElement('span');
+        validationSpan.className = validation.isValid ? 'valid-key' : 'invalid-key';
+        validationSpan.textContent = validation.isValid ? '✓ ' : '✗ ';
+        
+        const privateKeyText = document.createElement('span');
+        privateKeyText.textContent = walletData.privateKey;
+        
+        privateKeyCell.appendChild(validationSpan);
+        privateKeyCell.appendChild(privateKeyText);
         
         // Status cell
         const statusCell = document.createElement('td');
-        statusCell.className = `status-cell status-${status.type}`;
+        statusCell.className = `status-${status.type}`;
         statusCell.textContent = status.text;
         
-        // Add all cells to the row
+        // Add all cells to row
         row.appendChild(addressCell);
         row.appendChild(privateKeyCell);
-        row.appendChild(balanceCell);
         row.appendChild(statusCell);
         
-        this.resultsBody.insertBefore(row, this.resultsBody.firstChild);
+        // Add row to table
+        this.resultsBody.appendChild(row);
 
         // Keep only last 50 results
         if (this.resultsBody.children.length > 50) {

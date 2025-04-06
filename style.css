@@ -261,6 +261,22 @@ tr:hover {
     text-align: center;
 }
 
+/* Valid Key Styles */
+.valid-key {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.invalid-key {
+    color: #f44336;
+    font-weight: bold;
+}
+
+.private-key-cell {
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .container {

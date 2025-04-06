@@ -15,6 +15,52 @@ class BitcoinWallet {
         }
     }
 
+    // Validate private key
+    validatePrivateKey(privateKey) {
+        try {
+            // Check if private key is a valid hex string
+            if (!/^[0-9a-fA-F]{64}$/.test(privateKey)) {
+                return {
+                    isValid: false,
+                    reason: 'Private key must be 32 bytes (64 hex characters)'
+                };
+            }
+
+            // Convert hex to BigInt and check range
+            const keyInt = BigInt('0x' + privateKey);
+            const maxKey = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140');
+            
+            if (keyInt <= 0n || keyInt >= maxKey) {
+                return {
+                    isValid: false,
+                    reason: 'Private key is out of valid range'
+                };
+            }
+
+            // Try to create key pair
+            try {
+                const keyPair = this.ec.keyFromPrivate(privateKey);
+                const publicKey = keyPair.getPublic().encode('hex');
+                
+                return {
+                    isValid: true,
+                    publicKey: publicKey
+                };
+            } catch (e) {
+                return {
+                    isValid: false,
+                    reason: 'Invalid private key format'
+                };
+            }
+        } catch (error) {
+            console.error('Error validating private key:', error);
+            return {
+                isValid: false,
+                reason: error.message
+            };
+        }
+    }
+
     // Generate private key from phrase using SHA-256
     generatePrivateKey(phrase) {
         try {
