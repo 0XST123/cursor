@@ -313,6 +313,43 @@ class WalletFinder {
             this.apiLimitElement.textContent = 'Error';
         }
     }
+
+    // Test function to verify wallet generation
+    testWalletGeneration() {
+        try {
+            console.log('Starting wallet generation test...');
+            
+            // Generate a test phrase
+            const phraseGenerator = new PhraseGenerator();
+            const phrase = phraseGenerator.generatePhrase();
+            console.log('Generated test phrase:', phrase);
+            
+            // Generate wallet
+            const wallet = this.wallet.generateWallet(phrase);
+            console.log('Generated wallet:', {
+                phrase: wallet.phrase,
+                privateKey: wallet.privateKey.substring(0, 8) + '...',
+                publicKey: wallet.publicKey.substring(0, 8) + '...',
+                address: wallet.address
+            });
+            
+            // Validate the generated address
+            const validation = this.wallet.validateAddress(wallet.address);
+            console.log('Address validation result:', validation);
+            
+            return {
+                success: true,
+                wallet: wallet,
+                validation: validation
+            };
+        } catch (error) {
+            console.error('Wallet generation test failed:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
 }
 
 // Remove duplicate initialization
