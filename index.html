@@ -5,6 +5,73 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bitcoin Brain Wallet Finder - MVP</title>
     <link rel="stylesheet" href="style.css">
+
+    <!-- Load libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
+    <script src="https://unpkg.com/bitcoinjs-lib@5.2.0/bundle.js"></script>
+
+    <!-- Buffer polyfill -->
+    <script>
+        if (typeof Buffer === 'undefined') {
+            window.Buffer = {
+                from: function(hex, encoding) {
+                    if (encoding === 'hex') {
+                        const bytes = new Uint8Array(hex.length / 2);
+                        for (let i = 0; i < hex.length; i += 2) {
+                            bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+                        }
+                        return bytes;
+                    }
+                    throw new Error('Unsupported encoding');
+                }
+            };
+        }
+    </script>
+
+    <!-- Load application -->
+    <script src="crypto.js"></script>
+    <script src="api.js"></script>
+    <script src="main.js"></script>
+
+    <!-- Application Initialization -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded');
+            
+            // Check if all required libraries are loaded
+            const requiredLibs = {
+                'CryptoJS': typeof CryptoJS !== 'undefined',
+                'elliptic': typeof elliptic !== 'undefined',
+                'Buffer': typeof Buffer !== 'undefined',
+                'bitcoin': typeof bitcoin !== 'undefined'
+            };
+
+            console.log('Library Status:', requiredLibs);
+
+            // Check if any library is missing
+            const missingLibs = Object.entries(requiredLibs)
+                .filter(([, loaded]) => !loaded)
+                .map(([name]) => name);
+
+            if (missingLibs.length > 0) {
+                const error = `Missing required libraries: ${missingLibs.join(', ')}`;
+                console.error(error);
+                alert(error);
+                return;
+            }
+
+            try {
+                // Initialize the application
+                window.walletFinder = new WalletFinder();
+                console.log('Application initialized successfully');
+            } catch (error) {
+                console.error('Failed to initialize application:', error);
+                alert('Error initializing application. Check console for details.');
+            }
+        });
+    </script>
 </head>
 <body>
     <div class="container">
@@ -55,89 +122,5 @@
             </table>
         </div>
     </div>
-
-    <!-- External Dependencies -->
-    <script>
-        // Function to check if all required libraries are loaded
-        function checkLibraries() {
-            const requiredLibs = {
-                'CryptoJS': typeof CryptoJS !== 'undefined',
-                'elliptic': typeof elliptic !== 'undefined',
-                'Buffer': typeof Buffer !== 'undefined',
-                'bitcoin': typeof bitcoin !== 'undefined'
-            };
-
-            console.log('Library Status:', requiredLibs);
-
-            const missingLibs = Object.entries(requiredLibs)
-                .filter(([, loaded]) => !loaded)
-                .map(([name]) => name);
-
-            if (missingLibs.length > 0) {
-                console.error('Missing libraries:', missingLibs.join(', '));
-                return false;
-            }
-            return true;
-        }
-
-        // Function to initialize application
-        function initializeApp() {
-            try {
-                if (!checkLibraries()) {
-                    console.error('Required libraries not loaded');
-                    return;
-                }
-                window.walletFinder = new WalletFinder();
-                console.log('Application initialized successfully');
-            } catch (error) {
-                console.error('Failed to initialize application:', error);
-                alert('Error initializing application. Check console for details.');
-            }
-        }
-    </script>
-
-    <!-- Load libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
-    <script src="https://unpkg.com/bitcoinjs-lib@5.2.0/bundle.js"></script>
-
-    <!-- Buffer polyfill -->
-    <script>
-        if (typeof Buffer === 'undefined') {
-            window.Buffer = {
-                from: function(hex, encoding) {
-                    if (encoding === 'hex') {
-                        const bytes = new Uint8Array(hex.length / 2);
-                        for (let i = 0; i < hex.length; i += 2) {
-                            bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-                        }
-                        return bytes;
-                    }
-                    throw new Error('Unsupported encoding');
-                }
-            };
-        }
-    </script>
-
-    <!-- Load application -->
-    <script src="crypto.js"></script>
-    <script src="api.js"></script>
-    <script src="main.js"></script>
-
-    <!-- Initialize application -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM Content Loaded');
-            // Try to initialize immediately
-            initializeApp();
-            
-            // If bitcoin library is not loaded, retry after a short delay
-            if (typeof bitcoin === 'undefined') {
-                console.log('Bitcoin library not loaded, retrying in 1 second...');
-                setTimeout(initializeApp, 1000);
-            }
-        });
-    </script>
 </body>
 </html> 
