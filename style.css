@@ -82,6 +82,47 @@ h1 {
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
+/* Wallet Types Statistics */
+.wallet-types-panel {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.wallet-types-panel h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 16px;
+}
+
+.wallet-types-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.wallet-type-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background-color: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.wallet-type-item label {
+    font-weight: 500;
+    color: #555;
+}
+
+.wallet-type-item span {
+    font-family: monospace;
+    font-size: 14px;
+    color: #333;
+}
+
 /* Progress Bar */
 .progress-container {
     width: 100%;
@@ -232,5 +273,9 @@ tr:hover {
     
     .control-panel {
         flex-direction: column;
+    }
+    
+    .wallet-types-grid {
+        grid-template-columns: 1fr;
     }
 } 

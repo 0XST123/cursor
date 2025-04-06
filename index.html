@@ -36,6 +36,29 @@
             </div>
         </div>
 
+        <!-- Wallet Types Statistics Panel -->
+        <div class="wallet-types-panel">
+            <h3>Статистика по типам кошельков</h3>
+            <div class="wallet-types-grid">
+                <div class="wallet-type-item">
+                    <label>Legacy (P2PKH):</label>
+                    <span id="p2pkhCount">0</span>
+                </div>
+                <div class="wallet-type-item">
+                    <label>SegWit (P2SH):</label>
+                    <span id="p2shCount">0</span>
+                </div>
+                <div class="wallet-type-item">
+                    <label>Native SegWit (Bech32):</label>
+                    <span id="bech32Count">0</span>
+                </div>
+                <div class="wallet-type-item">
+                    <label>Taproot (P2TR):</label>
+                    <span id="p2trCount">0</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Progress Bar -->
         <div class="progress-container">
             <div id="progressBar" class="progress-bar"></div>

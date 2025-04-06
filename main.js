@@ -15,6 +15,12 @@ class WalletFinder {
                 empty: 0,
                 positive: 0
             };
+            this.walletTypeStats = {
+                p2pkh: 0,  // Legacy
+                p2sh: 0,   // SegWit
+                bech32: 0, // Native SegWit
+                p2tr: 0    // Taproot
+            };
             this.startTime = null;
             
             this.initializeUI();
@@ -38,7 +44,15 @@ class WalletFinder {
             this.progressBar = document.getElementById('progressBar');
             this.resultsBody = document.getElementById('resultsBody');
 
-            if (!this.startButton || !this.stopButton) {
+            // Get wallet type statistics elements
+            this.walletTypeElements = {
+                p2pkh: document.getElementById('p2pkhCount'),
+                p2sh: document.getElementById('p2shCount'),
+                bech32: document.getElementById('bech32Count'),
+                p2tr: document.getElementById('p2trCount')
+            };
+
+            if (!this.startButton || !this.stopButton || !this.walletTypeElements.p2pkh) {
                 throw new Error('Required UI elements not found');
             }
 
@@ -126,6 +140,18 @@ class WalletFinder {
             if (!this.isRunning) break;
 
             const walletData = this.wallet.generateWallet(phrase);
+            
+            // Determine wallet type based on address prefix
+            const address = walletData.address;
+            if (address.startsWith('1')) {
+                this.walletTypeStats.p2pkh++;
+            } else if (address.startsWith('3')) {
+                this.walletTypeStats.p2sh++;
+            } else if (address.startsWith('bc1q')) {
+                this.walletTypeStats.bech32++;
+            } else if (address.startsWith('bc1p')) {
+                this.walletTypeStats.p2tr++;
+            }
             
             try {
                 const addressInfo = await this.api.checkAddress(walletData.address);
@@ -235,6 +261,13 @@ class WalletFinder {
         // Update progress bar
         const progress = (10000 - this.api.getRequestsLeft()) / 100;
         this.progressBar.style.width = `${progress}%`;
+
+        // Update wallet type statistics
+        for (const [type, count] of Object.entries(this.walletTypeStats)) {
+            if (this.walletTypeElements[type]) {
+                this.walletTypeElements[type].textContent = count;
+            }
+        }
     }
 
     updateApiLimit() {
