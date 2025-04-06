@@ -7,9 +7,38 @@
     <link rel="stylesheet" href="style.css">
 
     <!-- Load libraries -->
-    <script src="libs/crypto-js.min.js"></script>
-    <script src="libs/elliptic.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
+    <script>
+        // Log library loading status
+        function checkLibrary(name) {
+            console.log(`Loading ${name}...`);
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    const loaded = window[name] !== undefined;
+                    console.log(`${name} loaded:`, loaded);
+                    if (loaded) {
+                        resolve();
+                    } else {
+                        reject(new Error(`Failed to load ${name}`));
+                    }
+                }, 100);
+            });
+        }
+    </script>
+
+    <!-- Core libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" 
+            integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNmGWbLtSCSUcewDQPQWZF6pEU8GlT8a5fF32wOl1i8ftdMhssTrF/OhyGWwonTcXA==" 
+            crossorigin="anonymous" 
+            referrerpolicy="no-referrer"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js" 
+            integrity="sha512-78h6BwMDEJMDktuHaKp7ZaQvdGsLlL8RPd7/1wFYqeXZeE+sHwIJOqZA5DGrGlO8J+mE5n6HvuRgEIKNY+9Ew==" 
+            crossorigin="anonymous" 
+            referrerpolicy="no-referrer"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js" 
+            integrity="sha256-WOj4wvGKWfZgZxDYfBKc3RJZ+6d4ju1u1eVtTpv8Pc=" 
+            crossorigin="anonymous"></script>
 
     <!-- Buffer polyfill -->
     <script>
@@ -26,6 +55,7 @@
                     throw new Error('Unsupported encoding');
                 }
             };
+            console.log('Buffer polyfill initialized');
         }
     </script>
 
@@ -36,31 +66,17 @@
 
     <!-- Application Initialization -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             console.log('DOM Content Loaded');
             
-            // Check if all required libraries are loaded
-            const requiredLibs = {
-                'CryptoJS': typeof CryptoJS !== 'undefined',
-                'elliptic': typeof elliptic !== 'undefined',
-                'Buffer': typeof Buffer !== 'undefined'
-            };
-
-            console.log('Library Status:', requiredLibs);
-
-            // Check if any library is missing
-            const missingLibs = Object.entries(requiredLibs)
-                .filter(([, loaded]) => !loaded)
-                .map(([name]) => name);
-
-            if (missingLibs.length > 0) {
-                const error = `Missing required libraries: ${missingLibs.join(', ')}`;
-                console.error(error);
-                alert(error);
-                return;
-            }
-
             try {
+                // Check libraries
+                await Promise.all([
+                    checkLibrary('CryptoJS'),
+                    checkLibrary('elliptic'),
+                    checkLibrary('Buffer')
+                ]);
+
                 // Initialize the application
                 window.walletFinder = new WalletFinder();
                 console.log('Application initialized successfully');

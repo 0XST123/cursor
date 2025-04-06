@@ -5,18 +5,28 @@ class BitcoinWallet {
             
             // Check for required libraries
             if (typeof elliptic === 'undefined') {
+                console.error('elliptic library status:', typeof elliptic);
                 throw new Error('elliptic library not loaded');
             }
             if (typeof CryptoJS === 'undefined') {
+                console.error('CryptoJS library status:', typeof CryptoJS);
                 throw new Error('CryptoJS library not loaded');
             }
             if (typeof Buffer === 'undefined') {
+                console.error('Buffer library status:', typeof Buffer);
                 throw new Error('Buffer not loaded');
             }
 
             // Initialize elliptic curve
             this.ec = new elliptic.ec('secp256k1');
             
+            // Log successful initialization
+            console.log('Required libraries loaded:', {
+                elliptic: typeof elliptic,
+                CryptoJS: typeof CryptoJS,
+                Buffer: typeof Buffer
+            });
+            console.log('Elliptic curve initialized:', this.ec !== undefined);
             console.log('BitcoinWallet initialized successfully');
         } catch (error) {
             console.error('Failed to initialize BitcoinWallet:', error);
