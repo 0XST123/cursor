@@ -13,18 +13,37 @@
             console.log(`Checking ${name} library...`);
             return new Promise((resolve, reject) => {
                 let attempts = 0;
-                const maxAttempts = 10;
-                const interval = 100; // 100ms between attempts
+                const maxAttempts = 20; // Увеличим количество попыток
+                const interval = 200; // Увеличим интервал между попытками
 
                 function check() {
                     attempts++;
-                    const lib = window[name];
-                    console.log(`${name} check attempt ${attempts}:`, lib !== undefined);
+                    let lib;
                     
-                    if (lib !== undefined) {
-                        console.log(`${name} loaded successfully`);
-                        resolve();
-                    } else if (attempts >= maxAttempts) {
+                    try {
+                        lib = window[name];
+                        if (name === 'elliptic' && lib && lib.ec) {
+                            // Дополнительная проверка для elliptic
+                            try {
+                                const testEc = new lib.ec('secp256k1');
+                                console.log(`${name} library fully loaded and functional`);
+                                resolve();
+                                return;
+                            } catch (e) {
+                                console.log(`${name} library loaded but not yet functional`);
+                            }
+                        } else if (lib !== undefined) {
+                            console.log(`${name} library loaded successfully`);
+                            resolve();
+                            return;
+                        }
+                    } catch (e) {
+                        console.error(`Error checking ${name}:`, e);
+                    }
+
+                    console.log(`${name} check attempt ${attempts}/${maxAttempts}`);
+                    
+                    if (attempts >= maxAttempts) {
                         console.error(`Failed to load ${name} after ${maxAttempts} attempts`);
                         reject(new Error(`Failed to load ${name}`));
                     } else {
@@ -38,8 +57,17 @@
     </script>
 
     <!-- Core libraries -->
-    <!-- Buffer must be loaded first -->
-    <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js" 
+    <!-- Load elliptic first -->
+    <script defer src="https://cdn.jsdelivr.net/npm/elliptic@6.5.4/dist/elliptic.min.js"></script>
+    
+    <!-- Then load CryptoJS -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" 
+            integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNmGWbLtSCSUcewDQPQWZF6pEU8GlT8a5fF32wOl1i8ftdMhssTrF/OhyGWwonTcXA==" 
+            crossorigin="anonymous" 
+            referrerpolicy="no-referrer"></script>
+    
+    <!-- Finally load Buffer -->
+    <script defer src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js" 
             integrity="sha256-WOj4wvGKWfZgZxDYfBKc3RJZ+6d4ju1u1eVtTpv8Pc=" 
             crossorigin="anonymous"></script>
 
@@ -62,39 +90,30 @@
         }
     </script>
 
-    <!-- Then load CryptoJS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" 
-            integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNmGWbLtSCSUcewDQPQWZF6pEU8GlT8a5fF32wOl1i8ftdMhssTrF/OhyGWwonTcXA==" 
-            crossorigin="anonymous" 
-            referrerpolicy="no-referrer"></script>
-    
-    <!-- Finally load elliptic -->
-    <script src="https://cdn.jsdelivr.net/npm/elliptic@6.5.4/dist/elliptic.min.js"></script>
-
     <!-- Load application -->
-    <script src="crypto.js"></script>
-    <script src="api.js"></script>
-    <script src="main.js"></script>
+    <script defer src="crypto.js"></script>
+    <script defer src="api.js"></script>
+    <script defer src="main.js"></script>
 
     <!-- Application Initialization -->
     <script>
-        document.addEventListener('DOMContentLoaded', async function() {
-            console.log('DOM Content Loaded, starting initialization...');
+        window.addEventListener('load', async function() {
+            console.log('Window loaded, starting initialization...');
             
             try {
                 console.log('Checking core libraries...');
                 // Check core libraries
                 await Promise.all([
-                    checkLibrary('Buffer'),
+                    checkLibrary('elliptic'),
                     checkLibrary('CryptoJS'),
-                    checkLibrary('elliptic')
+                    checkLibrary('Buffer')
                 ]);
 
                 console.log('All core libraries loaded successfully');
                 console.log('Library status:', {
-                    Buffer: typeof Buffer !== 'undefined',
+                    elliptic: typeof elliptic !== 'undefined',
                     CryptoJS: typeof CryptoJS !== 'undefined',
-                    elliptic: typeof elliptic !== 'undefined'
+                    Buffer: typeof Buffer !== 'undefined'
                 });
 
                 // Initialize the application
