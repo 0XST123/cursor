@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Brain Wallet Finder - MVP</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Bitcoin Brain Wallet Finder</h1>
+        
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <button id="startButton" class="btn">Запустить поиск</button>
+            <button id="stopButton" class="btn" disabled>Остановить</button>
+        </div>
+
+        <!-- Statistics Panel -->
+        <div class="stats-panel">
+            <div class="stat-item">
+                <label>Проверено:</label>
+                <span id="checkedCount">0</span>
+            </div>
+            <div class="stat-item">
+                <label>Найдено:</label>
+                <span id="foundCount">0</span>
+            </div>
+            <div class="stat-item">
+                <label>Скорость (адр/сек):</label>
+                <span id="speed">0</span>
+            </div>
+            <div class="stat-item">
+                <label>API запросов осталось:</label>
+                <span id="apiLimit">10000</span>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div id="progressBar" class="progress-bar"></div>
+        </div>
+
+        <!-- Results Table -->
+        <div class="results-container">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>Адрес</th>
+                        <th>Приватный ключ</th>
+                        <th>Баланс BTC</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- External Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
+    
+    <!-- Buffer polyfill -->
+    <script>
+        // Simple Buffer polyfill
+        if (typeof Buffer === 'undefined') {
+            window.Buffer = {
+                from: function(hex, encoding) {
+                    if (encoding === 'hex') {
+                        const bytes = new Uint8Array(hex.length / 2);
+                        for (let i = 0; i < hex.length; i += 2) {
+                            bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+                        }
+                        return bytes;
+                    }
+                    throw new Error('Unsupported encoding');
+                }
+            };
+        }
+    </script>
+
+    <!-- Base58 implementation -->
+    <script>
+        // Simple Base58 implementation
+        const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+        
+        window.bs58 = {
+            encode: function(buffer) {
+                let digits = [0];
+                
+                // Convert to base58
+                buffer.forEach((byte) => {
+                    let carry = byte;
+                    for (let i = 0; i < digits.length; i++) {
+                        carry += digits[i] << 8;
+                        digits[i] = carry % 58;
+                        carry = (carry / 58) | 0;
+                    }
+                    while (carry > 0) {
+                        digits.push(carry % 58);
+                        carry = (carry / 58) | 0;
+                    }
+                });
+
+                // Convert digits to base58 string
+                let string = '';
+                for (let i = digits.length - 1; i >= 0; i--) {
+                    string += ALPHABET[digits[i]];
+                }
+                
+                return string;
+            }
+        };
+    </script>
+
+    <!-- Application Initialization -->
+    <script>
+        // Wait for DOM content to be loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded');
+            
+            // Check if all required libraries are loaded
+            const requiredLibs = {
+                'CryptoJS': typeof CryptoJS !== 'undefined',
+                'elliptic': typeof elliptic !== 'undefined',
+                'Buffer': typeof Buffer !== 'undefined',
+                'bs58': typeof bs58 !== 'undefined'
+            };
+
+            // Log library status
+            console.log('Library Status:', requiredLibs);
+
+            // Load application files in sequence
+            console.log('Loading application files...');
+            Promise.all([
+                loadScript('crypto.js'),
+                loadScript('api.js'),
+                loadScript('main.js')
+            ]).then(() => {
+                console.log('All application files loaded');
+                try {
+                    // Initialize the application
+                    window.walletFinder = new WalletFinder();
+                    console.log('Application initialized successfully');
+                } catch (error) {
+                    console.error('Failed to initialize application:', error);
+                    alert('Error initializing application. Check console for details.');
+                }
+            }).catch(error => {
+                console.error('Failed to load application files:', error);
+                alert('Error loading application files. Check console for details.');
+            });
+        });
+
+        // Helper function to load scripts
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => {
+                    console.log(`Loaded: ${src}`);
+                    resolve();
+                };
+                script.onerror = () => {
+                    console.error(`Failed to load: ${src}`);
+                    reject(new Error(`Failed to load ${src}`));
+                };
+                document.body.appendChild(script);
+            });
+        }
+    </script>
+</body>
+</html> 
