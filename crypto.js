@@ -30,41 +30,62 @@ class BitcoinWallet {
             console.log('BitcoinWallet initialized successfully');
         } catch (error) {
             console.error('Failed to initialize BitcoinWallet:', error);
-            throw error;
+            throw new Error(`Ошибка инициализации: ${error.message}`);
         }
     }
 
     // Generate private key from phrase using SHA-256
     generatePrivateKey(phrase) {
         try {
+            console.log('Generating private key from phrase...');
+            if (!phrase) {
+                throw new Error('Пустая фраза');
+            }
+            
             // Convert phrase to WordArray
             const wordArray = CryptoJS.enc.Utf8.parse(phrase);
             // Generate SHA256 hash
             const hash = CryptoJS.SHA256(wordArray);
             // Convert to hex string
-            return hash.toString(CryptoJS.enc.Hex);
+            const privateKey = hash.toString(CryptoJS.enc.Hex);
+            
+            console.log('Private key generated successfully');
+            return privateKey;
         } catch (error) {
             console.error('Error generating private key:', error);
-            throw error;
+            throw new Error(`Ошибка генерации приватного ключа: ${error.message}`);
         }
     }
 
     // Generate public key from private key
     generatePublicKey(privateKeyHex) {
         try {
+            console.log('Generating public key...');
+            if (!privateKeyHex) {
+                throw new Error('Пустой приватный ключ');
+            }
+            
             // Create key pair from private key
             const keyPair = this.ec.keyFromPrivate(privateKeyHex, 'hex');
             // Get public key in compressed format
-            return keyPair.getPublic(true, 'hex');
+            const publicKey = keyPair.getPublic(true, 'hex');
+            
+            console.log('Public key generated successfully');
+            return publicKey;
         } catch (error) {
             console.error('Error generating public key:', error);
-            throw error;
+            throw new Error(`Ошибка генерации публичного ключа: ${error.message}`);
         }
     }
 
     // Generate Bitcoin address from public key
     generateAddress(publicKeyHex) {
         try {
+            console.log('Generating Bitcoin address...');
+            if (!publicKeyHex) {
+                throw new Error('Пустой публичный ключ');
+            }
+            
             // Step 1: SHA-256 of public key
             const sha256 = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(publicKeyHex));
             
@@ -89,10 +110,11 @@ class BitcoinWallet {
             const bytes = Buffer.from(binaryAddress, 'hex');
             const address = this.base58Encode(bytes);
             
+            console.log('Bitcoin address generated successfully');
             return address;
         } catch (error) {
             console.error('Error generating address:', error);
-            throw error;
+            throw new Error(`Ошибка генерации адреса: ${error.message}`);
         }
     }
 

@@ -6,6 +6,26 @@ class WalletFinder {
             this.wallet = new BitcoinWallet();
             this.phraseGenerator = new PhraseGenerator();
             
+            // Initialize UI elements
+            this.isRunning = false;
+            this.checkedCount = 0;
+            this.foundCount = 0;
+            this.stats = {
+                invalid: 0,
+                new: 0,
+                used: 0
+            };
+            
+            this.initializeUI();
+            console.log('\nWalletFinder initialized successfully');
+        } catch (error) {
+            console.error('Error initializing WalletFinder:', error);
+            throw new Error(`Ошибка инициализации WalletFinder: ${error.message}`);
+        }
+    }
+
+    async runTests() {
+        try {
             // Test cases
             const testCases = [
                 // Известный использованный адрес
@@ -48,29 +68,14 @@ class WalletFinder {
             
             // 3. Test BlockchairAPI
             console.log('\nTesting BlockchairAPI:');
-            this.api.checkAddress(testCases[0])
-                .then(info => {
-                    console.log('API Response for known address:', info);
-                })
-                .catch(error => {
-                    console.error('API Error:', error);
-                });
+            const apiResponse = await this.api.checkAddress(testCases[0]);
+            console.log('API Response for known address:', apiResponse);
             
-            // Initialize UI elements
-            this.isRunning = false;
-            this.checkedCount = 0;
-            this.foundCount = 0;
-            this.stats = {
-                invalid: 0,
-                new: 0,
-                used: 0
-            };
-            
-            this.initializeUI();
-            console.log('\nWalletFinder initialized successfully');
+            console.log('\nAll tests completed successfully');
+            return true;
         } catch (error) {
-            console.error('Error initializing WalletFinder:', error);
-            throw error;
+            console.error('Test execution failed:', error);
+            return false;
         }
     }
 

@@ -70,19 +70,26 @@
             console.log('DOM Content Loaded');
             
             try {
-                // Check libraries
+                // Check core libraries
                 await Promise.all([
                     checkLibrary('CryptoJS'),
                     checkLibrary('elliptic'),
                     checkLibrary('Buffer')
                 ]);
 
+                console.log('Core libraries loaded successfully');
+
                 // Initialize the application
                 window.walletFinder = new WalletFinder();
+                
+                // Optional: Run tests if needed
+                // const testsPassed = await window.walletFinder.runTests();
+                // console.log('Tests completed:', testsPassed ? 'SUCCESS' : 'FAILED');
+                
                 console.log('Application initialized successfully');
             } catch (error) {
                 console.error('Failed to initialize application:', error);
-                alert('Error initializing application. Check console for details.');
+                alert('Ошибка инициализации приложения. Проверьте консоль для деталей.');
             }
         });
     </script>
