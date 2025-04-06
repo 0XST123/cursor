@@ -112,28 +112,37 @@ class WalletFinder {
     async start() {
         if (this.isRunning) return;
 
-        this.isRunning = true;
-        this.startTime = Date.now();
-        this.startButton.disabled = true;
-        this.stopButton.disabled = false;
+        try {
+            this.isRunning = true;
+            this.startTime = Date.now();
+            this.startButton.disabled = true;
+            this.stopButton.disabled = false;
 
-        // Clear previous results
-        this.resultsBody.innerHTML = '';
-        this.checkedCount = 0;
-        this.foundCount = 0;
-        Object.keys(this.stats).forEach(key => this.stats[key] = 0);
+            // Clear previous results
+            this.resultsBody.innerHTML = '';
+            this.checkedCount = 0;
+            this.foundCount = 0;
+            Object.keys(this.stats).forEach(key => this.stats[key] = 0);
 
-        while (this.isRunning) {
-            try {
-                await this.processNextBatch();
-            } catch (error) {
-                console.error('Error in main loop:', error);
-                if (error.message === 'API limit reached') {
-                    this.stop();
-                    alert('API limit reached. Stopping search.');
-                    break;
+            while (this.isRunning) {
+                try {
+                    await this.processNextBatch();
+                } catch (error) {
+                    console.error('Error in main loop:', error);
+                    if (error.message === 'API limit reached') {
+                        this.stop();
+                        alert('Достигнут лимит API запросов. Поиск остановлен.');
+                        break;
+                    }
                 }
             }
+        } catch (error) {
+            console.error('Critical error in start:', error);
+            alert(`Критическая ошибка: ${error.message}`);
+        } finally {
+            // Ensure buttons are in correct state
+            this.startButton.disabled = false;
+            this.stopButton.disabled = true;
         }
     }
 
@@ -199,7 +208,14 @@ class WalletFinder {
                 // Count failed checks as invalid
                 this.stats.invalid++;
                 this.addResultToTable(walletData, { type: 'invalid', text: 'Не валидный' });
-                throw error;
+                
+                // Only stop if API limit is reached
+                if (error.message === 'API limit reached') {
+                    throw error;
+                }
+                
+                // For other errors, continue with next phrase
+                continue;
             }
         }
     }
@@ -290,7 +306,7 @@ class WalletFinder {
 
     async updateApiLimit() {
         try {
-            const limit = await this.api.getRemainingLimit();
+            const limit = this.api.getRequestsLeft();
             this.apiLimitElement.textContent = limit;
         } catch (error) {
             console.error('Error updating API limit:', error);
@@ -299,7 +315,8 @@ class WalletFinder {
     }
 }
 
+// Remove duplicate initialization
 // Initialize the application when the page loads
-document.addEventListener('DOMContentLoaded', () => {
-    window.walletFinder = new WalletFinder();
-}); 
+// document.addEventListener('DOMContentLoaded', () => {
+//     window.walletFinder = new WalletFinder();
+// }); 

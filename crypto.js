@@ -1,3 +1,19 @@
+// Templates and components for phrase generation
+const templates = [
+    "{adjective} {noun} {year}",
+    "{verb} {noun} {number}",
+    "{noun} {verb} {year}",
+    "{adjective} {verb} {number}"
+];
+
+const components = {
+    adjective: ["happy", "lucky", "golden", "silver", "crypto", "digital", "virtual", "secret"],
+    noun: ["bitcoin", "wallet", "key", "block", "chain", "crypto", "coin", "satoshi"],
+    verb: ["mining", "holding", "trading", "staking", "buying", "selling"],
+    year: ["2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023"],
+    number: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20"]
+};
+
 class BitcoinWallet {
     constructor() {
         try {
@@ -241,27 +257,6 @@ class BitcoinWallet {
         }
     }
 }
-
-// Predefined templates and components for phrase generation
-const templates = [
-    'bitcoingenesis{year}',
-    'satoshinakamoto{year}',
-    'whitepaper{month}{year}',
-    'DOUBLEMINERPUBLIC{num}',
-    'rewardprivatenonce{special}',
-    'scripttarget{special}',
-    'DISCUSSIONPREVIOUSMININGTHREAD',
-    'TOPICCASH{special}',
-    'hashdecentralizedmerklescriptmail',
-    'signatureopenspokenquerysystem'
-];
-
-const components = {
-    years: ['2008', '2009', '2010', '2011', '2012'],
-    months: ['01', '03', '05', '08', '10', '12'],
-    specials: ['#', '@', '$', '&', '*', '!'],
-    nums: ['0402', '0515', '0901', '1204', '21000000', '10000', '50']
-};
 
 // Phrase generator class
 class PhraseGenerator {
