@@ -25,8 +25,7 @@ class BitcoinWallet {
             console.log('Library Status:', {
                 'CryptoJS': typeof CryptoJS !== 'undefined',
                 'elliptic': typeof elliptic !== 'undefined',
-                'Buffer': typeof Buffer !== 'undefined',
-                'bs58': typeof bs58 !== 'undefined'
+                'Buffer': typeof Buffer !== 'undefined'
             });
             
             console.log('BitcoinWallet initialized successfully');

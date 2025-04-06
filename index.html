@@ -101,6 +101,18 @@
             // Log library status
             console.log('Library Status:', requiredLibs);
 
+            // Check if any library is missing
+            const missingLibs = Object.entries(requiredLibs)
+                .filter(([, loaded]) => !loaded)
+                .map(([name]) => name);
+
+            if (missingLibs.length > 0) {
+                const error = `Missing required libraries: ${missingLibs.join(', ')}`;
+                console.error(error);
+                alert(error);
+                return;
+            }
+
             try {
                 // Initialize the application
                 window.walletFinder = new WalletFinder();
