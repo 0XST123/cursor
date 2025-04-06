@@ -1,8 +1,8 @@
 class WalletFinder {
-    constructor(apiProvider = 'blockchain.info') {
+    constructor() {
         try {
             console.log('Initializing WalletFinder...');
-            this.api = BitcoinAPIFactory.getAPI(apiProvider);
+            this.api = BitcoinAPIFactory.createAPI();
             this.wallet = new BitcoinWallet();
             this.phraseGenerator = new PhraseGenerator();
             

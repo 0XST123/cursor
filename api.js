@@ -146,13 +146,11 @@ class BlockchainInfoAPI {
 
 // Фабрика API без использования модулей
 class BitcoinAPIFactory {
-    static getAPI(provider = 'blockchain.info') {
-        switch (provider.toLowerCase()) {
-            case 'blockchair':
-                return new BlockchairAPI();
-            case 'blockchain.info':
-            default:
-                return new BlockchainInfoAPI();
-        }
+    static createAPI() {
+        return new BlockchairAPI();
     }
-} 
+}
+
+// Make classes available globally
+window.BlockchairAPI = BlockchairAPI;
+window.BitcoinAPIFactory = BitcoinAPIFactory; 
