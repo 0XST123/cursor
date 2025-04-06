@@ -1,16 +1,44 @@
 class WalletFinder {
     constructor() {
-        console.log('Initializing WalletFinder...');
         try {
+            console.log('Initializing WalletFinder...');
             this.api = new BlockchairAPI();
             this.wallet = new BitcoinWallet();
             this.phraseGenerator = new PhraseGenerator();
             
-            // Test specific private key
-            const testPrivateKey = '70ba928a1205b7a4ad61165c70ab07bfb638b0bddbd3e013e3f4a96d0d6c1d18';
-            const testAddress = this.wallet.generateAddressFromPrivateKey(testPrivateKey);
-            console.log('Test private key:', testPrivateKey);
-            console.log('Generated address:', testAddress);
+            // Test cases
+            const testCases = [
+                // Наш предыдущий тестовый ключ
+                '70ba928a1205b7a4ad61165c70ab07bfb638b0bddbd3e013e3f4a96d0d6c1d18',
+                // Дополнительные тестовые ключи
+                'f4128c0b67f6ce729db9b94da4e4c35f54822d9d0e1fd918f88a1c1870c17e1f',
+                '8d4733ae5e1e0d2b2e9827c734947b54c3c1c2a81c45e3237f3e6dcb1d16f658'
+            ];
+            
+            console.log('=== Testing Address Generation ===');
+            testCases.forEach((privateKey, index) => {
+                console.log(`\nTest Case ${index + 1}:`);
+                console.log('Private Key:', privateKey);
+                
+                // Метод 1: Прямая генерация из приватного ключа
+                const address1 = this.wallet.generateAddressFromPrivateKey(privateKey);
+                console.log('Method 1 (Direct):', address1);
+                
+                // Метод 2: Через публичный ключ
+                const publicKey = this.wallet.generatePublicKey(privateKey);
+                const address2 = this.wallet.generateAddress(publicKey);
+                console.log('Method 2 (Via Public Key):', address2);
+                
+                // Проверка валидности
+                const validation = this.wallet.validateAddress(address1);
+                console.log('Address Validation:', 
+                    validation.isValid ? '✓ Valid' : '✗ Invalid',
+                    `(${validation.format || validation.reason})`
+                );
+                
+                // Проверка совпадения адресов
+                console.log('Addresses Match:', address1 === address2 ? '✓ Yes' : '✗ No');
+            });
             
             this.isRunning = false;
             this.checkedCount = 0;
@@ -30,7 +58,7 @@ class WalletFinder {
             this.startTime = null;
             
             this.initializeUI();
-            console.log('WalletFinder initialized successfully');
+            console.log('\nWalletFinder initialized successfully');
         } catch (error) {
             console.error('Error initializing WalletFinder:', error);
             throw error;
