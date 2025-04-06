@@ -2,11 +2,33 @@ class BitcoinWallet {
     constructor() {
         try {
             console.log('Initializing BitcoinWallet...');
+            
+            // Check for required libraries
+            if (typeof elliptic === 'undefined') {
+                throw new Error('elliptic library not loaded');
+            }
             if (typeof bitcoin === 'undefined') {
                 throw new Error('bitcoinjs-lib not loaded');
             }
+            if (typeof CryptoJS === 'undefined') {
+                throw new Error('CryptoJS library not loaded');
+            }
+            if (typeof Buffer === 'undefined') {
+                throw new Error('Buffer not loaded');
+            }
+
+            // Initialize elliptic curve
+            this.ec = new elliptic.ec('secp256k1');
             // Use mainnet network
             this.network = bitcoin.networks.bitcoin;
+            
+            console.log('Library Status:', {
+                'CryptoJS': typeof CryptoJS !== 'undefined',
+                'elliptic': typeof elliptic !== 'undefined',
+                'Buffer': typeof Buffer !== 'undefined',
+                'bs58': typeof bs58 !== 'undefined'
+            });
+            
             console.log('BitcoinWallet initialized successfully');
         } catch (error) {
             console.error('Failed to initialize BitcoinWallet:', error);
@@ -41,6 +63,25 @@ class BitcoinWallet {
         }
     }
 
+    // Generate Bitcoin address from public key
+    generateAddress(publicKeyHex) {
+        try {
+            // Convert hex to Buffer
+            const publicKeyBuffer = Buffer.from(publicKeyHex, 'hex');
+            
+            // Create P2PKH (Legacy) address
+            const { address } = bitcoin.payments.p2pkh({
+                pubkey: publicKeyBuffer,
+                network: this.network
+            });
+            
+            return address;
+        } catch (error) {
+            console.error('Error generating address:', error);
+            throw error;
+        }
+    }
+
     // Generate address from private key
     generateAddressFromPrivateKey(privateKeyHex) {
         try {
@@ -60,30 +101,6 @@ class BitcoinWallet {
             return address;
         } catch (error) {
             console.error('Error generating address from private key:', error);
-            throw error;
-        }
-    }
-
-    // Generate Bitcoin address from public key
-    generateAddress(publicKeyHex) {
-        try {
-            // Convert hex to Buffer
-            const publicKeyBuffer = Buffer.from(publicKeyHex, 'hex');
-            
-            // Create P2PKH (Legacy) address
-            const { address } = bitcoin.payments.p2pkh({
-                pubkey: publicKeyBuffer,
-                network: this.network
-            });
-            
-            // Ensure the address starts with '1' for Legacy addresses
-            if (address && !address.startsWith('1')) {
-                return '1' + address;
-            }
-            
-            return address;
-        } catch (error) {
-            console.error('Error generating address:', error);
             throw error;
         }
     }
