@@ -8,46 +8,62 @@ class WalletFinder {
             
             // Test cases
             const testCases = [
-                // Наш предыдущий тестовый ключ
+                // Известный использованный адрес
+                '1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF',
+                // Наш тестовый ключ
                 '70ba928a1205b7a4ad61165c70ab07bfb638b0bddbd3e013e3f4a96d0d6c1d18',
-                // Дополнительные тестовые ключи
-                'f4128c0b67f6ce729db9b94da4e4c35f54822d9d0e1fd918f88a1c1870c17e1f',
-                '8d4733ae5e1e0d2b2e9827c734947b54c3c1c2a81c45e3237f3e6dcb1d16f658'
+                // Тестовая фраза
+                'satoshi nakamoto 2009'
             ];
             
-            console.log('=== Testing Address Generation ===');
-            testCases.forEach((privateKey, index) => {
-                console.log(`\nTest Case ${index + 1}:`);
-                console.log('Private Key:', privateKey);
-                
-                // Метод 1: Прямая генерация из приватного ключа
-                const address1 = this.wallet.generateAddressFromPrivateKey(privateKey);
-                console.log('Method 1 (Direct):', address1);
-                
-                // Метод 2: Через публичный ключ
-                const publicKey = this.wallet.generatePublicKey(privateKey);
-                const address2 = this.wallet.generateAddress(publicKey);
-                console.log('Method 2 (Via Public Key):', address2);
-                
-                // Проверка валидности
-                const validation = this.wallet.validateAddress(address1);
-                console.log('Address Validation:', 
-                    validation.isValid ? '✓ Valid' : '✗ Invalid',
-                    `(${validation.format || validation.reason})`
-                );
-                
-                // Проверка совпадения адресов
-                console.log('Addresses Match:', address1 === address2 ? '✓ Yes' : '✗ No');
+            console.log('=== Testing Components ===');
+            
+            // 1. Test PhraseGenerator
+            console.log('\nTesting PhraseGenerator:');
+            const phrases = this.phraseGenerator.generatePhrases(3);
+            phrases.forEach((phrase, i) => {
+                console.log(`Phrase ${i + 1}:`, phrase);
             });
             
+            // 2. Test BitcoinWallet
+            console.log('\nTesting BitcoinWallet:');
+            
+            // Test address validation
+            console.log('Address Validation Test:');
+            const addressValidation = this.wallet.validateAddress(testCases[0]);
+            console.log('Known Address:', testCases[0]);
+            console.log('Validation Result:', addressValidation);
+            
+            // Test private key validation
+            console.log('\nPrivate Key Test:');
+            const keyValidation = this.wallet.validatePrivateKey(testCases[1]);
+            console.log('Test Key:', testCases[1]);
+            console.log('Validation Result:', keyValidation);
+            
+            // Test wallet generation from phrase
+            console.log('\nWallet Generation Test:');
+            const testWallet = this.wallet.generateWallet(testCases[2]);
+            console.log('From Phrase:', testCases[2]);
+            console.log('Generated Wallet:', testWallet);
+            
+            // 3. Test BlockchairAPI
+            console.log('\nTesting BlockchairAPI:');
+            this.api.checkAddress(testCases[0])
+                .then(info => {
+                    console.log('API Response for known address:', info);
+                })
+                .catch(error => {
+                    console.error('API Error:', error);
+                });
+            
+            // Initialize UI elements
             this.isRunning = false;
             this.checkedCount = 0;
             this.foundCount = 0;
             this.stats = {
                 invalid: 0,
                 new: 0,
-                empty: 0,
-                positive: 0
+                used: 0
             };
             
             this.initializeUI();
