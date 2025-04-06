@@ -53,6 +53,11 @@ class BitcoinWallet {
                 network: this.network
             });
             
+            // Ensure the address starts with '1' for Legacy addresses
+            if (address && !address.startsWith('1')) {
+                return '1' + address;
+            }
+            
             return address;
         } catch (error) {
             console.error('Error generating address:', error);
