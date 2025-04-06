@@ -10,32 +10,35 @@
     <script>
         // Log library loading status
         function checkLibrary(name) {
-            console.log(`Loading ${name}...`);
+            console.log(`Checking ${name} library...`);
             return new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    const loaded = window[name] !== undefined;
-                    console.log(`${name} loaded:`, loaded);
-                    if (loaded) {
+                let attempts = 0;
+                const maxAttempts = 10;
+                const interval = 100; // 100ms between attempts
+
+                function check() {
+                    attempts++;
+                    const lib = window[name];
+                    console.log(`${name} check attempt ${attempts}:`, lib !== undefined);
+                    
+                    if (lib !== undefined) {
+                        console.log(`${name} loaded successfully`);
                         resolve();
-                    } else {
+                    } else if (attempts >= maxAttempts) {
+                        console.error(`Failed to load ${name} after ${maxAttempts} attempts`);
                         reject(new Error(`Failed to load ${name}`));
+                    } else {
+                        setTimeout(check, interval);
                     }
-                }, 100);
+                }
+
+                check();
             });
         }
     </script>
 
     <!-- Core libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" 
-            integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNmGWbLtSCSUcewDQPQWZF6pEU8GlT8a5fF32wOl1i8ftdMhssTrF/OhyGWwonTcXA==" 
-            crossorigin="anonymous" 
-            referrerpolicy="no-referrer"></script>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js" 
-            integrity="sha512-78h6BwMDEJMDktuHaKp7ZaQvdGsLlL8RPd7/1wFYqeXZeE+sHwIJOqZA5DGrGlO8J+mE5n6HvuRgEIKNY+9Ew==" 
-            crossorigin="anonymous" 
-            referrerpolicy="no-referrer"></script>
-    
+    <!-- Buffer must be loaded first -->
     <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js" 
             integrity="sha256-WOj4wvGKWfZgZxDYfBKc3RJZ+6d4ju1u1eVtTpv8Pc=" 
             crossorigin="anonymous"></script>
@@ -59,6 +62,15 @@
         }
     </script>
 
+    <!-- Then load CryptoJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" 
+            integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNmGWbLtSCSUcewDQPQWZF6pEU8GlT8a5fF32wOl1i8ftdMhssTrF/OhyGWwonTcXA==" 
+            crossorigin="anonymous" 
+            referrerpolicy="no-referrer"></script>
+    
+    <!-- Finally load elliptic -->
+    <script src="https://cdn.jsdelivr.net/npm/elliptic@6.5.4/dist/elliptic.min.js"></script>
+
     <!-- Load application -->
     <script src="crypto.js"></script>
     <script src="api.js"></script>
@@ -67,29 +79,32 @@
     <!-- Application Initialization -->
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
-            console.log('DOM Content Loaded');
+            console.log('DOM Content Loaded, starting initialization...');
             
             try {
+                console.log('Checking core libraries...');
                 // Check core libraries
                 await Promise.all([
+                    checkLibrary('Buffer'),
                     checkLibrary('CryptoJS'),
-                    checkLibrary('elliptic'),
-                    checkLibrary('Buffer')
+                    checkLibrary('elliptic')
                 ]);
 
-                console.log('Core libraries loaded successfully');
+                console.log('All core libraries loaded successfully');
+                console.log('Library status:', {
+                    Buffer: typeof Buffer !== 'undefined',
+                    CryptoJS: typeof CryptoJS !== 'undefined',
+                    elliptic: typeof elliptic !== 'undefined'
+                });
 
                 // Initialize the application
+                console.log('Initializing WalletFinder...');
                 window.walletFinder = new WalletFinder();
-                
-                // Optional: Run tests if needed
-                // const testsPassed = await window.walletFinder.runTests();
-                // console.log('Tests completed:', testsPassed ? 'SUCCESS' : 'FAILED');
                 
                 console.log('Application initialized successfully');
             } catch (error) {
                 console.error('Failed to initialize application:', error);
-                alert('Ошибка инициализации приложения. Проверьте консоль для деталей.');
+                alert('Ошибка инициализации приложения: ' + error.message + '\nПроверьте консоль для деталей.');
             }
         });
     </script>
