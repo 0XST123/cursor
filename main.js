@@ -184,9 +184,17 @@ class WalletFinder {
     addResultToTable(walletData, info, status) {
         const row = document.createElement('tr');
         
-        // Address cell with copy button
+        // Address cell with validation and copy button
         const addressCell = document.createElement('td');
         addressCell.className = 'address-cell';
+        
+        const addressValidation = this.wallet.validateAddress(walletData.address);
+        const addressValidationSpan = document.createElement('span');
+        addressValidationSpan.className = addressValidation.isValid ? 'valid-key' : 'invalid-key';
+        addressValidationSpan.textContent = addressValidation.isValid ? '✓ ' : '✗ ';
+        addressValidationSpan.title = addressValidation.isValid ? 
+            `Валидный ${addressValidation.format} адрес` : 
+            `Невалидный адрес: ${addressValidation.reason}`;
         
         const addressText = document.createElement('span');
         addressText.className = 'address-text';
@@ -205,6 +213,7 @@ class WalletFinder {
             setTimeout(() => copyButton.classList.remove('copied'), 1000);
         };
         
+        addressCell.appendChild(addressValidationSpan);
         addressCell.appendChild(addressText);
         addressCell.appendChild(copyButton);
         
@@ -216,6 +225,9 @@ class WalletFinder {
         const validationSpan = document.createElement('span');
         validationSpan.className = validation.isValid ? 'valid-key' : 'invalid-key';
         validationSpan.textContent = validation.isValid ? '✓ ' : '✗ ';
+        validationSpan.title = validation.isValid ? 
+            'Валидный приватный ключ' : 
+            `Невалидный ключ: ${validation.reason}`;
         
         const privateKeyText = document.createElement('span');
         privateKeyText.textContent = walletData.privateKey;
