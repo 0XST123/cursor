@@ -28,10 +28,6 @@ class BitcoinWallet {
                 console.error('CryptoJS library status:', typeof CryptoJS);
                 throw new Error('CryptoJS library not loaded');
             }
-            if (typeof Buffer === 'undefined') {
-                console.error('Buffer library status:', typeof Buffer);
-                throw new Error('Buffer not loaded');
-            }
 
             // Initialize elliptic curve
             this.ec = new elliptic.ec('secp256k1');
@@ -39,8 +35,7 @@ class BitcoinWallet {
             // Log successful initialization
             console.log('Required libraries loaded:', {
                 elliptic: typeof elliptic,
-                CryptoJS: typeof CryptoJS,
-                Buffer: typeof Buffer
+                CryptoJS: typeof CryptoJS
             });
             console.log('Elliptic curve initialized:', this.ec !== undefined);
             console.log('BitcoinWallet initialized successfully');
@@ -125,32 +120,51 @@ class BitcoinWallet {
             // Step 6: Add checksum to version + hash
             const binaryAddress = versionAndHash + checksum;
             
-            // Step 7: Convert to base58
-            const bytes = Buffer.from(binaryAddress, 'hex');
-            let result = '';
-            
-            // Manual base58 encoding
-            const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-            let num = BigInt('0x' + bytes.toString('hex'));
-            const base = BigInt(58);
-            
-            while (num > BigInt(0)) {
-                const mod = num % base;
-                result = ALPHABET[Number(mod)] + result;
-                num = num / base;
-            }
-            
-            // Add leading zeros
-            for (let i = 0; i < bytes.length && bytes[i] === 0; i++) {
-                result = '1' + result;
-            }
+            // Step 7: Convert hex to bytes and then to base58
+            const bytes = this.hexToBytes(binaryAddress);
+            const address = this.base58Encode(bytes);
             
             console.log('Bitcoin address generated successfully');
-            return result;
+            return address;
         } catch (error) {
             console.error('Error generating address:', error);
             throw new Error(`Ошибка генерации адреса: ${error.message}`);
         }
+    }
+
+    // Convert hex string to byte array
+    hexToBytes(hex) {
+        const bytes = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < hex.length; i += 2) {
+            bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+        }
+        return bytes;
+    }
+
+    // Base58 encoding
+    base58Encode(bytes) {
+        const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+        
+        // Convert bytes to big number
+        let num = 0n;
+        for (let i = 0; i < bytes.length; i++) {
+            num = num * 256n + BigInt(bytes[i]);
+        }
+        
+        // Convert big number to base58
+        let result = '';
+        while (num > 0n) {
+            const mod = Number(num % 58n);
+            result = ALPHABET[mod] + result;
+            num = num / 58n;
+        }
+        
+        // Add leading zeros
+        for (let i = 0; i < bytes.length && bytes[i] === 0; i++) {
+            result = '1' + result;
+        }
+        
+        return result;
     }
 
     // Generate address from private key
