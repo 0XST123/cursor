@@ -300,6 +300,27 @@ tr:hover {
     font-family: monospace;
 }
 
+/* Address display styles */
+.address-row {
+    margin: 4px 0;
+}
+
+.address-label {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 2px;
+}
+
+.address-value {
+    font-family: monospace;
+    word-break: break-all;
+}
+
+/* Status row styles */
+.status-row {
+    margin: 4px 0;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .container {

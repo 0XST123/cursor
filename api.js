@@ -63,40 +63,74 @@ class BlockchairAPI {
 class BlockchainInfoAPI {
     constructor() {
         this.baseUrl = 'https://blockchain.info';
-        this.requestsLeft = 0;
+        this.requestsLeft = Infinity; // У blockchain.info нет явного лимита запросов
         this.requestsPerSecond = 0;
         this.lastRequestTime = Date.now();
+        this.minRequestInterval = 1000; // Минимум 1 секунда между запросами
+        this.consecutiveErrors = 0;
+        this.maxConsecutiveErrors = 3;
     }
 
     async checkAddress(address) {
         try {
-            // Добавляем минимальную задержку между запросами
+            // Строгий контроль частоты запросов
             const now = Date.now();
             const timeSinceLastRequest = now - this.lastRequestTime;
-            if (timeSinceLastRequest < 200) { // Минимум 200мс между запросами
-                await new Promise(resolve => setTimeout(resolve, 200 - timeSinceLastRequest));
+            if (timeSinceLastRequest < this.minRequestInterval) {
+                await new Promise(resolve => 
+                    setTimeout(resolve, this.minRequestInterval - timeSinceLastRequest)
+                );
             }
 
-            // Формируем URL для blockchain.info API
-            const finalUrl = `${this.baseUrl}/rawaddr/${address}`;
+            // Формируем URL для blockchain.info API с CORS
+            const finalUrl = `${this.baseUrl}/rawaddr/${address}?cors=true`;
 
             console.log('Requesting Blockchain.info URL:', finalUrl);
             const response = await fetch(finalUrl);
-            const data = await response.json();
             
-            // Логируем ответ для отладки
-            console.log('API Response:', JSON.stringify(data, null, 2));
-            
-            this.lastRequestTime = Date.now();
-
-            // В этом API баланс уже в сатоши
-            if (data && typeof data.final_balance !== 'undefined') {
-                return Number(data.final_balance) / 100000000; // конвертация в BTC
+            // Обработка ошибок HTTP
+            if (!response.ok) {
+                if (response.status === 429) { // Too Many Requests
+                    this.minRequestInterval *= 2; // Увеличиваем интервал
+                    throw new Error('Rate limit exceeded');
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            return 0;
+            const data = await response.json();
+            
+            // Сброс счетчика ошибок при успешном запросе
+            this.consecutiveErrors = 0;
+            this.lastRequestTime = Date.now();
+
+            // Проверка структуры ответа
+            if (!data || typeof data.final_balance === 'undefined') {
+                throw new Error('Invalid API response structure');
+            }
+
+            // Расчет скорости запросов
+            const requestTime = (Date.now() - now) / 1000;
+            this.requestsPerSecond = 1 / requestTime;
+
+            return Number(data.final_balance) / 100000000; // конвертация в BTC
         } catch (error) {
             console.error('Blockchain.info API error:', error);
+            
+            // Увеличиваем счетчик последовательных ошибок
+            this.consecutiveErrors++;
+            
+            // Если слишком много ошибок подряд, увеличиваем интервал
+            if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
+                this.minRequestInterval *= 1.5;
+                console.warn(`Increasing request interval to ${this.minRequestInterval}ms due to consecutive errors`);
+                this.consecutiveErrors = 0;
+            }
+
+            // При ошибках сети делаем паузу
+            if (error.message.includes('network') || error.message.includes('rate limit')) {
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+
             return 0;
         }
     }
@@ -110,20 +144,15 @@ class BlockchainInfoAPI {
     }
 }
 
-// Фабрика API
+// Фабрика API без использования модулей
 class BitcoinAPIFactory {
     static getAPI(provider = 'blockchain.info') {
         switch (provider.toLowerCase()) {
             case 'blockchair':
                 return new BlockchairAPI();
             case 'blockchain.info':
-                return new BlockchainInfoAPI();
             default:
-                console.warn(`Unknown API provider: ${provider}, using blockchain.info as fallback`);
                 return new BlockchainInfoAPI();
         }
     }
-}
-
-// Экспортируем фабрику для использования
-export default BitcoinAPIFactory; 
+} 

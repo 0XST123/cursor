@@ -14,6 +14,29 @@ const components = {
     number: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20"]
 };
 
+class PhraseGenerator {
+    constructor() {
+        this.templates = templates;
+        this.components = components;
+    }
+
+    generatePhrase() {
+        const template = this.templates[Math.floor(Math.random() * this.templates.length)];
+        return template.replace(/{(\w+)}/g, (match, component) => {
+            const options = this.components[component];
+            return options[Math.floor(Math.random() * options.length)];
+        });
+    }
+
+    generatePhrases(count) {
+        const phrases = [];
+        for (let i = 0; i < count; i++) {
+            phrases.push(this.generatePhrase());
+        }
+        return phrases;
+    }
+}
+
 class BitcoinWallet {
     constructor() {
         try {
@@ -266,33 +289,5 @@ class BitcoinWallet {
             console.error('Error generating wallet:', error);
             throw error;
         }
-    }
-}
-
-// Phrase generator class
-class PhraseGenerator {
-    constructor() {
-        this.templates = templates;
-        this.components = components;
-    }
-
-    // Generate a phrase using a random template
-    generatePhrase() {
-        const template = this.templates[Math.floor(Math.random() * this.templates.length)];
-        
-        return template.replace(/{(\w+)}/g, (match, component) => {
-            const componentArray = this.components[component];
-            if (!componentArray) return match;
-            return componentArray[Math.floor(Math.random() * componentArray.length)];
-        });
-    }
-
-    // Generate multiple phrases
-    generatePhrases(count) {
-        const phrases = [];
-        for (let i = 0; i < count; i++) {
-            phrases.push(this.generatePhrase());
-        }
-        return phrases;
     }
 } 
