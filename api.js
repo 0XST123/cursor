@@ -1,6 +1,6 @@
 class BlockchairAPI {
     constructor() {
-        this.API_KEY = 'AKPIXlvcUCcOjwiFTR2rRKASglriL77n';
+        this.API_KEY = 'A___XlvcUCcOjwiFTR2rRKASglriL77n';
         this.baseUrl = 'https://api.blockchair.com/bitcoin';
         this.requestsLeft = 0;
         this.requestsPerSecond = 0;
