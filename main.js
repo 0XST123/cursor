@@ -13,7 +13,8 @@ class WalletFinder {
             this.stats = {
                 invalid: 0,
                 new: 0,
-                used: 0
+                used: 0,
+                valuable: 0
             };
             
             this.initializeUI();
@@ -304,10 +305,18 @@ class WalletFinder {
         this.checkedCountElement.textContent = this.checkedCount;
         this.foundCountElement.textContent = this.foundCount;
         
+        // Update wallet type counts
+        document.getElementById('newCount').textContent = this.stats.new;
+        document.getElementById('usedCount').textContent = this.stats.used;
+        document.getElementById('valuableCount').textContent = this.stats.valuable;
+        
         // Calculate and update speed
         const elapsedTime = (Date.now() - this.startTime) / 1000;
         const speed = Math.round(this.checkedCount / elapsedTime);
         this.speedElement.textContent = speed;
+        
+        // Update API limit
+        this.apiLimitElement.textContent = this.api.getRequestsLeft();
     }
 
     async updateApiLimit() {
