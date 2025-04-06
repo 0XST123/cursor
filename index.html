@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bitcoin Brain Wallet Finder - MVP</title>
-    <link rel="stylesheet" href="/cursor/style.css">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
@@ -36,29 +36,6 @@
             </div>
         </div>
 
-        <!-- Wallet Types Statistics Panel -->
-        <div class="wallet-types-panel">
-            <h3>Статистика по типам кошельков</h3>
-            <div class="wallet-types-grid">
-                <div class="wallet-type-item">
-                    <label>Legacy (P2PKH):</label>
-                    <span id="p2pkhCount">0</span>
-                </div>
-                <div class="wallet-type-item">
-                    <label>SegWit (P2SH):</label>
-                    <span id="p2shCount">0</span>
-                </div>
-                <div class="wallet-type-item">
-                    <label>Native SegWit (Bech32):</label>
-                    <span id="bech32Count">0</span>
-                </div>
-                <div class="wallet-type-item">
-                    <label>Taproot (P2TR):</label>
-                    <span id="p2trCount">0</span>
-                </div>
-            </div>
-        </div>
-
         <!-- Progress Bar -->
         <div class="progress-container">
             <div id="progressBar" class="progress-bar"></div>
@@ -71,7 +48,6 @@
                     <tr>
                         <th>Адрес</th>
                         <th>Приватный ключ</th>
-                        <th>Баланс BTC</th>
                         <th>Статус</th>
                     </tr>
                 </thead>
@@ -105,40 +81,6 @@
         }
     </script>
 
-    <!-- Base58 implementation -->
-    <script>
-        // Simple Base58 implementation
-        const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-        
-        window.bs58 = {
-            encode: function(buffer) {
-                let digits = [0];
-                
-                // Convert to base58
-                buffer.forEach((byte) => {
-                    let carry = byte;
-                    for (let i = 0; i < digits.length; i++) {
-                        carry += digits[i] << 8;
-                        digits[i] = carry % 58;
-                        carry = (carry / 58) | 0;
-                    }
-                    while (carry > 0) {
-                        digits.push(carry % 58);
-                        carry = (carry / 58) | 0;
-                    }
-                });
-
-                // Convert digits to base58 string
-                let string = '';
-                for (let i = digits.length - 1; i >= 0; i--) {
-                    string += ALPHABET[digits[i]];
-                }
-                
-                return string;
-            }
-        };
-    </script>
-
     <!-- Application Initialization -->
     <script>
         // Wait for DOM content to be loaded
@@ -149,8 +91,7 @@
             const requiredLibs = {
                 'CryptoJS': typeof CryptoJS !== 'undefined',
                 'elliptic': typeof elliptic !== 'undefined',
-                'Buffer': typeof Buffer !== 'undefined',
-                'bs58': typeof bs58 !== 'undefined'
+                'Buffer': typeof Buffer !== 'undefined'
             };
 
             // Log library status

@@ -49,13 +49,6 @@ class WalletFinder {
                 empty: 0,
                 positive: 0
             };
-            this.walletTypeStats = {
-                p2pkh: 0,  // Legacy
-                p2sh: 0,   // SegWit
-                bech32: 0, // Native SegWit
-                p2tr: 0    // Taproot
-            };
-            this.startTime = null;
             
             this.initializeUI();
             console.log('\nWalletFinder initialized successfully');
@@ -78,15 +71,7 @@ class WalletFinder {
             this.progressBar = document.getElementById('progressBar');
             this.resultsBody = document.getElementById('resultsBody');
 
-            // Get wallet type statistics elements
-            this.walletTypeElements = {
-                p2pkh: document.getElementById('p2pkhCount'),
-                p2sh: document.getElementById('p2shCount'),
-                bech32: document.getElementById('bech32Count'),
-                p2tr: document.getElementById('p2trCount')
-            };
-
-            if (!this.startButton || !this.stopButton || !this.walletTypeElements.p2pkh) {
+            if (!this.startButton || !this.stopButton) {
                 throw new Error('Required UI elements not found');
             }
 
@@ -110,6 +95,12 @@ class WalletFinder {
         this.startTime = Date.now();
         this.startButton.disabled = true;
         this.stopButton.disabled = false;
+
+        // Clear previous results
+        this.resultsBody.innerHTML = '';
+        this.checkedCount = 0;
+        this.foundCount = 0;
+        Object.keys(this.stats).forEach(key => this.stats[key] = 0);
 
         while (this.isRunning) {
             try {
@@ -140,17 +131,6 @@ class WalletFinder {
             };
         }
 
-        // Convert balance to BTC (from satoshis)
-        const balanceBTC = (addressInfo.balance || 0) / 100000000;
-
-        // Check for positive balance
-        if (balanceBTC >= 0.00001) {
-            return {
-                type: 'positive',
-                text: 'Положительный'
-            };
-        }
-
         // Check if it's a new address
         if (addressInfo.totalTransactions === 0) {
             return {
@@ -159,10 +139,10 @@ class WalletFinder {
             };
         }
 
-        // If has transactions but zero balance
+        // If has transactions
         return {
-            type: 'empty',
-            text: 'Пустой'
+            type: 'used',
+            text: 'Использовался'
         };
     }
 
@@ -175,18 +155,6 @@ class WalletFinder {
 
             const walletData = this.wallet.generateWallet(phrase);
             
-            // Determine wallet type based on address prefix
-            const address = walletData.address;
-            if (address.startsWith('1')) {
-                this.walletTypeStats.p2pkh++;
-            } else if (address.startsWith('3')) {
-                this.walletTypeStats.p2sh++;
-            } else if (address.startsWith('bc1q')) {
-                this.walletTypeStats.bech32++;
-            } else if (address.startsWith('bc1p')) {
-                this.walletTypeStats.p2tr++;
-            }
-            
             try {
                 const addressInfo = await this.api.checkAddress(walletData.address);
                 this.checkedCount++;
@@ -196,10 +164,10 @@ class WalletFinder {
                 this.stats[status.type]++;
                 
                 // Add to table
-                this.addResultToTable(walletData, addressInfo, status);
+                this.addResultToTable(walletData, status);
                 
-                // Update found count for positive balances
-                if (status.type === 'positive') {
+                // Update found count for used addresses
+                if (status.type === 'used') {
                     this.foundCount++;
                 }
                 
@@ -209,13 +177,13 @@ class WalletFinder {
                 console.error('Error checking address:', error);
                 // Count failed checks as invalid
                 this.stats.invalid++;
-                this.addResultToTable(walletData, null, { type: 'invalid', text: 'Не валидный' });
+                this.addResultToTable(walletData, { type: 'invalid', text: 'Не валидный' });
                 throw error;
             }
         }
     }
 
-    addResultToTable(walletData, info, status) {
+    addResultToTable(walletData, status) {
         const row = document.createElement('tr');
         
         // Address cell with validation and copy button
@@ -282,39 +250,31 @@ class WalletFinder {
         // Add row to table
         this.resultsBody.appendChild(row);
 
-        // Keep only last 50 results
-        if (this.resultsBody.children.length > 50) {
-            this.resultsBody.removeChild(this.resultsBody.lastChild);
+        // Keep only last 100 results
+        while (this.resultsBody.children.length > 100) {
+            this.resultsBody.removeChild(this.resultsBody.firstChild);
         }
     }
 
-    async updateStats() {
-        // Update counts
+    updateStats() {
+        // Update counters
         this.checkedCountElement.textContent = this.checkedCount;
         this.foundCountElement.textContent = this.foundCount;
-
-        // Update speed
-        const elapsedSeconds = (Date.now() - this.startTime) / 1000;
-        const speed = this.checkedCount / elapsedSeconds;
-        this.speedElement.textContent = speed.toFixed(2);
-
-        // Update API limit
-        this.updateApiLimit();
-
-        // Update progress bar
-        const progress = (10000 - this.api.getRequestsLeft()) / 100;
-        this.progressBar.style.width = `${progress}%`;
-
-        // Update wallet type statistics
-        for (const [type, count] of Object.entries(this.walletTypeStats)) {
-            if (this.walletTypeElements[type]) {
-                this.walletTypeElements[type].textContent = count;
-            }
-        }
+        
+        // Calculate and update speed
+        const elapsedTime = (Date.now() - this.startTime) / 1000;
+        const speed = Math.round(this.checkedCount / elapsedTime);
+        this.speedElement.textContent = speed;
     }
 
-    updateApiLimit() {
-        this.apiLimitElement.textContent = this.api.getRequestsLeft();
+    async updateApiLimit() {
+        try {
+            const limit = await this.api.getRemainingLimit();
+            this.apiLimitElement.textContent = limit;
+        } catch (error) {
+            console.error('Error updating API limit:', error);
+            this.apiLimitElement.textContent = 'Error';
+        }
     }
 }
 
