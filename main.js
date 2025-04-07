@@ -114,24 +114,32 @@ class WalletFinder {
         this.stopButton.disabled = true;
     }
 
-    getWalletStatus(balance) {
-        // Если баланс не определен или произошла ошибка
-        if (typeof balance === 'undefined' || balance === null) {
+    getWalletStatus(addressInfo) {
+        // Если данные не определены или произошла ошибка
+        if (!addressInfo || typeof addressInfo.balance === 'undefined' || typeof addressInfo.transactionCount === 'undefined') {
             return {
                 type: 'invalid',
                 text: 'Не валидный'
             };
         }
 
-        // Если баланс равен 0
-        if (balance === 0) {
+        // Если баланс >= 0.0001 BTC
+        if (addressInfo.balance >= 0.0001) {
+            return {
+                type: 'valuable',
+                text: `Баланс: ${addressInfo.balance.toFixed(8)} BTC`
+            };
+        }
+
+        // Если нет транзакций
+        if (addressInfo.transactionCount === 0) {
             return {
                 type: 'new',
                 text: 'Новый'
             };
         }
 
-        // Если баланс больше 0
+        // Если есть транзакции
         return {
             type: 'used',
             text: 'Использовался'
@@ -188,20 +196,20 @@ class WalletFinder {
             const walletData = this.wallet.generateWallet(phrase);
             
             try {
-                const balance = await this.api.checkAddress(walletData.address);
+                const addressInfo = await this.api.checkAddress(walletData.address);
                 this.checkedCount++;
                 
                 // Get wallet status and update stats
-                const status = this.getWalletStatus(balance);
+                const status = this.getWalletStatus(addressInfo);
                 this.stats[status.type]++;
                 
                 // Update stats
                 this.foundCount++;
-                this.totalBtcFound += balance;
+                this.totalBtcFound += addressInfo.balance;
                 
                 // Add to table
                 this.addResultToTable(walletData, {
-                    balance: balance,
+                    balance: addressInfo.balance,
                     status: status
                 });
                 

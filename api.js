@@ -104,7 +104,7 @@ class BlockchainInfoAPI {
             this.lastRequestTime = Date.now();
 
             // Проверка структуры ответа
-            if (!data || typeof data.final_balance === 'undefined') {
+            if (!data || typeof data.final_balance === 'undefined' || typeof data.n_tx === 'undefined') {
                 throw new Error('Invalid API response structure');
             }
 
@@ -112,7 +112,10 @@ class BlockchainInfoAPI {
             const requestTime = (Date.now() - now) / 1000;
             this.requestsPerSecond = 1 / requestTime;
 
-            return Number(data.final_balance) / 100000000; // конвертация в BTC
+            return {
+                balance: Number(data.final_balance) / 100000000, // конвертация в BTC
+                transactionCount: data.n_tx
+            };
         } catch (error) {
             console.error('Blockchain.info API error:', error);
             
@@ -131,7 +134,10 @@ class BlockchainInfoAPI {
                 await new Promise(resolve => setTimeout(resolve, 5000));
             }
 
-            return 0;
+            return {
+                balance: 0,
+                transactionCount: 0
+            };
         }
     }
 
