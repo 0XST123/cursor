@@ -179,21 +179,19 @@ class WalletFinder {
             this.startButton.disabled = true;
             this.stopButton.disabled = false;
 
-            // Clear previous results
+            // Clear only the results table
             this.resultsBody.innerHTML = '';
-            this.checkedCount = 0;
-            this.foundCount = 0;
-            this.totalBtcFound = 0;
-            Object.keys(this.stats).forEach(key => this.stats[key] = 0);
 
             while (this.isRunning) {
                 try {
                     await this.processNextBatch();
                 } catch (error) {
                     console.error('Error in main loop:', error);
-                    if (error.message === 'API limit reached') {
+                    if (error.message === 'API limit reached' || error.message === 'API request timeout') {
                         this.stop();
-                        alert('Достигнут лимит API запросов. Поиск остановлен.');
+                        alert(error.message === 'API limit reached' ? 
+                            'Достигнут лимит API запросов. Поиск остановлен.' :
+                            'Превышено время ожидания API. Поиск остановлен.');
                         break;
                     }
                 }
@@ -214,14 +212,6 @@ class WalletFinder {
     }
 
     getWalletStatus(addressInfo) {
-        // Если данные не определены или произошла ошибка
-        if (!addressInfo || typeof addressInfo.balance === 'undefined') {
-            return {
-                type: 'invalid',
-                text: 'Не валидный'
-            };
-        }
-
         // Если баланс >= 0.0001 BTC
         if (addressInfo.balance >= 0.0001) {
             return {
@@ -231,7 +221,7 @@ class WalletFinder {
         }
 
         // Если нет транзакций - новый адрес
-        if (!addressInfo.hasTransactions) {
+        if (addressInfo.transactionCount === 0) {
             return {
                 type: 'new',
                 text: 'Новый'
