@@ -21,13 +21,15 @@ class BlockchairAPI {
 
             // Формируем URL для batch-запроса
             const addressList = addresses.join(',');
-            const url = `${this.baseUrl}/dashboards/addresses/${addressList}`;
+            const url = `${this.baseUrl}/addresses/`;
             const params = new URLSearchParams({
+                addresses: addressList,
                 key: this.API_KEY,
-                limit: '0',
+                limit: 1,
+                offset: 0,
                 state: 'latest',
-                transaction_details: 'false',
-                omni: 'false'
+                transaction_details: false,
+                omni: false
             });
             const finalUrl = `${url}?${params.toString()}`;
 
@@ -57,8 +59,17 @@ class BlockchairAPI {
 
             // Обрабатываем результаты для каждого адреса
             const results = {};
+            if (!data.data || !Array.isArray(data.data)) {
+                throw new Error('Invalid API response format');
+            }
+
+            // Создаем map адресов для быстрого поиска
+            const addressMap = new Map(data.data.map(item => [item.address, item]));
+
             for (const address of addresses) {
-                if (!data.data || !data.data[address] || !data.data[address].address) {
+                const addressData = addressMap.get(address);
+                
+                if (!addressData) {
                     results[address] = {
                         balance: 0,
                         transactionCount: 0,
@@ -69,7 +80,6 @@ class BlockchairAPI {
                     continue;
                 }
 
-                const addressData = data.data[address].address;
                 const balance = Number(addressData.balance || 0) / 100000000;
                 const txCount = Number(addressData.transaction_count || 0);
                 const totalReceived = Number(addressData.received || 0) / 100000000;
