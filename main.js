@@ -384,6 +384,7 @@ class WalletFinder {
             <td title="${walletData.compressed.address}">${walletData.compressed.address}</td>
             <td title="${walletData.uncompressed.address}">${walletData.uncompressed.address}</td>
             <td title="${walletData.privateKey}">${walletData.privateKey}</td>
+            <td title="${walletData.sourcePhrase}">${walletData.sourcePhrase}</td>
             <td class="status-${checkResult.status.type}">${checkResult.status.text}</td>
         `;
 
@@ -416,12 +417,14 @@ class WalletFinder {
         historyItem.dataset.compressedAddress = data.compressed.address;
         historyItem.dataset.uncompressedAddress = data.uncompressed.address;
         historyItem.dataset.privateKey = data.privateKey;
+        historyItem.dataset.sourcePhrase = data.sourcePhrase;
         historyItem.dataset.balance = data.balance;
         historyItem.dataset.status = JSON.stringify(data.status);
         historyItem.dataset.timestamp = data.timestamp;
         
         historyItem.innerHTML = `
             <div>Batch #${data.batchNumber} - ${new Date(data.timestamp).toLocaleString()}</div>
+            <div>Source Phrase: ${data.sourcePhrase}</div>
             <div>Compressed: ${data.compressed.address}</div>
             <div>Uncompressed: ${data.uncompressed.address}</div>
             <div>Private Key: ${data.privateKey}</div>
@@ -451,6 +454,8 @@ class WalletFinder {
                             const wallet = this.wallet.generateWallet(phrase);
                             if (wallet && wallet.compressed && wallet.compressed.address &&
                                 wallet.uncompressed && wallet.uncompressed.address) {
+                                // Добавляем исходную фразу к данным кошелька
+                                wallet.sourcePhrase = phrase;
                                 this.currentBatch.keys.push(wallet);
                             }
                         } catch (error) {
