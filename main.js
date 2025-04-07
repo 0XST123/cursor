@@ -351,27 +351,24 @@ class WalletFinder {
         }
     }
 
-    getWalletStatus(addressInfo) {
-        // Если баланс >= 0.0001 BTC
-        if (addressInfo.balance >= 0.0001) {
+    getWalletStatus(data) {
+        if (data.balance > 0) {
             return {
                 type: 'valuable',
-                text: `Баланс: ${addressInfo.balance.toFixed(8)} BTC`
+                text: 'Valuable'
             };
         }
-
-        // Если нет транзакций - новый адрес
-        if (addressInfo.transactionCount === 0) {
+        
+        if (data.hasTransactions || data.totalReceived > 0 || data.totalSent > 0) {
             return {
-                type: 'new',
-                text: 'Новый'
+                type: 'used',
+                text: 'Used'
             };
         }
-
-        // Если есть транзакции - использованный адрес
+        
         return {
-            type: 'used',
-            text: 'Использовался'
+            type: 'new',
+            text: 'New'
         };
     }
 
@@ -513,9 +510,19 @@ class WalletFinder {
                     this.checkedCount += 2;
                     this.currentBatch.processed++;
                     
-                    // Определяем статус и баланс (берем максимальный из двух адресов)
+                    // Определяем статус и баланс
                     const balance = Math.max(compressedInfo.balance, uncompressedInfo.balance);
-                    const status = this.getWalletStatus({ balance });
+                    const hasTransactions = compressedInfo.hasTransactions || uncompressedInfo.hasTransactions;
+                    const totalReceived = compressedInfo.totalReceived + uncompressedInfo.totalReceived;
+                    const totalSent = compressedInfo.totalSent + uncompressedInfo.totalSent;
+                    
+                    const status = this.getWalletStatus({ 
+                        balance, 
+                        hasTransactions,
+                        totalReceived,
+                        totalSent
+                    });
+                    
                     this.stats[status.type]++;
                     
                     // Update batch progress
