@@ -352,20 +352,24 @@ class WalletFinder {
     }
 
     getWalletStatus(data) {
+        // Если есть положительный баланс - ценный кошелек
         if (data.balance > 0) {
             return {
                 type: 'valuable',
-                text: 'Valuable'
+                text: `Balance: ${data.balance.toFixed(8)} BTC`
             };
         }
         
-        if (data.hasTransactions || data.totalReceived > 0 || data.totalSent > 0) {
+        // Проверяем наличие реальных транзакций
+        // Кошелек считается использованным только если есть подтвержденные транзакции
+        if (data.hasTransactions && (data.totalReceived > 0 || data.totalSent > 0)) {
             return {
                 type: 'used',
                 text: 'Used'
             };
         }
         
+        // Если нет транзакций и баланс 0 - новый кошелек
         return {
             type: 'new',
             text: 'New'
@@ -515,6 +519,24 @@ class WalletFinder {
                     const hasTransactions = compressedInfo.hasTransactions || uncompressedInfo.hasTransactions;
                     const totalReceived = compressedInfo.totalReceived + uncompressedInfo.totalReceived;
                     const totalSent = compressedInfo.totalSent + uncompressedInfo.totalSent;
+                    
+                    // Логируем данные для отладки
+                    console.log('Wallet data:', {
+                        compressed: {
+                            address: walletData.compressed.address,
+                            balance: compressedInfo.balance,
+                            hasTransactions: compressedInfo.hasTransactions,
+                            totalReceived: compressedInfo.totalReceived,
+                            totalSent: compressedInfo.totalSent
+                        },
+                        uncompressed: {
+                            address: walletData.uncompressed.address,
+                            balance: uncompressedInfo.balance,
+                            hasTransactions: uncompressedInfo.hasTransactions,
+                            totalReceived: uncompressedInfo.totalReceived,
+                            totalSent: uncompressedInfo.totalSent
+                        }
+                    });
                     
                     const status = this.getWalletStatus({ 
                         balance, 
