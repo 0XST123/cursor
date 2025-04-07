@@ -448,7 +448,7 @@ class WalletFinder {
             // Generate new batch if needed
             if (this.currentBatch.keys.length === 0) {
                 try {
-                    const phrases = this.phraseGenerator.generatePhrases(this.batchSize);
+                    const phrases = await this.phraseGenerator.generatePhrases(this.batchSize);
                     this.currentBatch.keys = [];
                     
                     // Generate wallets with error handling for each phrase
@@ -466,7 +466,6 @@ class WalletFinder {
                     
                     this.currentBatch.processed = 0;
                     this.currentBatch.progress = 0;
-                    console.log(`Generated new batch #${this.currentBatch.number} with ${this.currentBatch.keys.length} valid keys`);
                     
                     // If no valid wallets were generated, throw error
                     if (this.currentBatch.keys.length === 0) {
@@ -478,89 +477,100 @@ class WalletFinder {
                 }
             }
 
-            // Process wallets one by one
-            for (let i = this.currentBatch.processed; i < this.currentBatch.keys.length; i++) {
+            // Process wallets in batches of 40
+            const BATCH_SIZE = 40;
+            while (this.currentBatch.processed < this.currentBatch.keys.length) {
                 if (!this.isRunning) {
-                    console.log(`Processing stopped at position ${i}`);
+                    console.log(`Processing stopped at position ${this.currentBatch.processed}`);
                     return;
                 }
 
                 try {
-                    const walletData = this.currentBatch.keys[i];
+                    // Prepare addresses for batch check
+                    const addressBatch = [];
+                    const walletBatch = [];
+                    const endIndex = Math.min(this.currentBatch.processed + BATCH_SIZE, this.currentBatch.keys.length);
                     
-                    // Verify wallet data
-                    if (!walletData || !walletData.compressed || !walletData.uncompressed ||
-                        !walletData.compressed.address || !walletData.uncompressed.address) {
-                        console.error('Invalid wallet data at position', i);
-                        continue;
+                    for (let i = this.currentBatch.processed; i < endIndex; i++) {
+                        const walletData = this.currentBatch.keys[i];
+                        if (walletData && walletData.compressed && walletData.uncompressed &&
+                            walletData.compressed.address && walletData.uncompressed.address) {
+                            addressBatch.push(walletData.compressed.address);
+                            addressBatch.push(walletData.uncompressed.address);
+                            walletBatch.push(walletData);
+                        }
                     }
 
-                    // Проверяем адреса последовательно
-                    const compressedInfo = await this.api.checkAddress(walletData.compressed.address);
-                    const uncompressedInfo = await this.api.checkAddress(walletData.uncompressed.address);
+                    // Check addresses in batch
+                    const batchResults = await this.api.checkAddressesBatch(addressBatch);
                     
-                    // Увеличиваем счетчики
-                    this.checkedAddresses += 2;
-                    this.checkedWallets++;
-                    this.currentBatch.processed++;
-                    
-                    // Определяем статус и баланс
-                    const balance = Math.max(compressedInfo.balance, uncompressedInfo.balance);
-                    const hasTransactions = compressedInfo.hasTransactions || uncompressedInfo.hasTransactions;
-                    const totalReceived = compressedInfo.totalReceived + uncompressedInfo.totalReceived;
-                    const totalSent = compressedInfo.totalSent + uncompressedInfo.totalSent;
-                    
-                    const status = this.getWalletStatus({ 
-                        balance, 
-                        hasTransactions,
-                        totalReceived,
-                        totalSent
-                    });
-                    
-                    this.stats[status.type]++;
-                    
-                    // Update batch progress
-                    this.currentBatch.progress = (this.currentBatch.processed / this.batchSize) * 100;
-                    
-                    // Add to main table with index
-                    this.addResultToTable(walletData, {
-                        balance: balance,
-                        status: status
-                    }, i);
-
-                    // Add to history if valuable or used
-                    if (status.type !== 'new') {
-                        this.foundCount++;
-                        this.totalBtcFound += balance;
+                    // Process results for each wallet
+                    for (let i = 0; i < walletBatch.length; i++) {
+                        const walletData = walletBatch[i];
+                        const compressedInfo = batchResults[walletData.compressed.address];
+                        const uncompressedInfo = batchResults[walletData.uncompressed.address];
                         
-                        this.addToHistory({
-                            batchNumber: this.currentBatch.number,
-                            compressed: walletData.compressed,
-                            uncompressed: walletData.uncompressed,
-                            privateKey: walletData.privateKey,
-                            balance: balance,
-                            status: status,
-                            timestamp: new Date().toISOString()
+                        // Увеличиваем счетчики
+                        this.checkedAddresses += 2;
+                        this.checkedWallets++;
+                        this.currentBatch.processed++;
+                        
+                        // Определяем статус и баланс
+                        const balance = Math.max(compressedInfo.balance, uncompressedInfo.balance);
+                        const hasTransactions = compressedInfo.hasTransactions || uncompressedInfo.hasTransactions;
+                        const totalReceived = compressedInfo.totalReceived + uncompressedInfo.totalReceived;
+                        const totalSent = compressedInfo.totalSent + uncompressedInfo.totalSent;
+                        
+                        const status = this.getWalletStatus({ 
+                            balance, 
+                            hasTransactions,
+                            totalReceived,
+                            totalSent
                         });
+                        
+                        this.stats[status.type]++;
+                        
+                        // Update batch progress
+                        this.currentBatch.progress = (this.currentBatch.processed / this.currentBatch.keys.length) * 100;
+                        
+                        // Add to main table with index
+                        this.addResultToTable(walletData, {
+                            balance: balance,
+                            status: status
+                        }, this.currentBatch.processed - walletBatch.length + i);
+
+                        // Add to history if valuable or used
+                        if (status.type !== 'new') {
+                            this.foundCount++;
+                            this.totalBtcFound += balance;
+                            
+                            this.addToHistory({
+                                batchNumber: this.currentBatch.number,
+                                compressed: walletData.compressed,
+                                uncompressed: walletData.uncompressed,
+                                privateKey: walletData.privateKey,
+                                balance: balance,
+                                status: status,
+                                timestamp: new Date().toISOString()
+                            });
+                        }
                     }
                     
                     // Update UI
                     this.updateStats();
                     
-                    // Добавляем небольшую задержку между проверками
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    // Добавляем небольшую задержку между батчами
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 } catch (error) {
-                    console.error(`Error processing wallet at position ${i}:`, error);
+                    console.error(`Error processing batch at position ${this.currentBatch.processed}:`, error);
                     // Если ошибка связана с API, останавливаем обработку
-                    if (error.message === 'API limit reached' || error.message === 'API request timeout') {
+                    if (error.message === 'API limit reached') {
                         this.pause();
-                        alert(error.message === 'API limit reached' ? 
-                            'API request limit reached. Processing paused.' :
-                            'API request timeout. Processing paused.');
+                        alert('API request limit reached. Processing paused.');
                         throw error;
                     }
-                    // Иначе продолжаем со следующим кошельком
-                    continue;
+                    // Иначе пропускаем текущий батч и продолжаем
+                    this.currentBatch.processed = endIndex;
                 }
             }
 

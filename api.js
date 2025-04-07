@@ -10,17 +10,18 @@ class BlockchairAPI {
         this.retryDelay = 1000; // 1 second
     }
 
-    async checkAddress(address, retryCount = 0) {
+    async checkAddressesBatch(addresses, retryCount = 0) {
         try {
             // Добавляем минимальную задержку между запросами
             const now = Date.now();
             const timeSinceLastRequest = now - this.lastRequestTime;
-            if (timeSinceLastRequest < 500) { // Увеличиваем минимальную задержку до 500мс
+            if (timeSinceLastRequest < 500) {
                 await new Promise(resolve => setTimeout(resolve, 500 - timeSinceLastRequest));
             }
 
-            // Формируем URL для одного адреса
-            const url = `${this.baseUrl}/dashboards/address/${encodeURIComponent(address)}`;
+            // Формируем URL для batch-запроса
+            const addressList = addresses.join(',');
+            const url = `${this.baseUrl}/dashboards/addresses/${addressList}`;
             const params = new URLSearchParams({
                 key: this.API_KEY,
                 limit: '0',
@@ -31,18 +32,16 @@ class BlockchairAPI {
             const finalUrl = `${url}?${params.toString()}`;
 
             const response = await fetch(finalUrl, {
-                timeout: 10000, // 10 second timeout
+                timeout: 30000, // 30 second timeout for batch requests
                 headers: {
                     'Accept': 'application/json'
                 }
             });
             
             if (!response.ok) {
-                // Если получаем 504 или 500, пробуем повторить запрос
                 if ((response.status === 504 || response.status === 500) && retryCount < this.maxRetries) {
-                    console.log(`Retrying request for ${address} (attempt ${retryCount + 1})`);
                     await new Promise(resolve => setTimeout(resolve, this.retryDelay));
-                    return this.checkAddress(address, retryCount + 1);
+                    return this.checkAddressesBatch(addresses, retryCount + 1);
                 }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -56,63 +55,67 @@ class BlockchairAPI {
                 this.requestsPerSecond = data.context.api_requests_per_second_limit;
             }
 
-            // Проверяем наличие данных
-            if (!data.data || !data.data[address] || !data.data[address].address) {
-                return {
-                    balance: 0,
-                    transactionCount: 0,
-                    hasTransactions: false,
-                    totalReceived: 0,
-                    totalSent: 0
+            // Обрабатываем результаты для каждого адреса
+            const results = {};
+            for (const address of addresses) {
+                if (!data.data || !data.data[address] || !data.data[address].address) {
+                    results[address] = {
+                        balance: 0,
+                        transactionCount: 0,
+                        hasTransactions: false,
+                        totalReceived: 0,
+                        totalSent: 0
+                    };
+                    continue;
+                }
+
+                const addressData = data.data[address].address;
+                const balance = Number(addressData.balance || 0) / 100000000;
+                const txCount = Number(addressData.transaction_count || 0);
+                const totalReceived = Number(addressData.received || 0) / 100000000;
+                const totalSent = Number(addressData.spent || 0) / 100000000;
+                const hasTransactions = txCount > 0 || totalReceived > 0 || totalSent > 0;
+
+                results[address] = {
+                    balance,
+                    transactionCount: txCount,
+                    hasTransactions,
+                    totalReceived,
+                    totalSent
                 };
             }
 
-            const addressData = data.data[address].address;
-            const balance = Number(addressData.balance || 0) / 100000000;
-            const txCount = Number(addressData.transaction_count || 0);
-            const totalReceived = Number(addressData.received || 0) / 100000000;
-            const totalSent = Number(addressData.spent || 0) / 100000000;
-            const hasTransactions = txCount > 0 || totalReceived > 0 || totalSent > 0;
-            
-            return {
-                balance,
-                transactionCount: txCount,
-                hasTransactions,
-                totalReceived,
-                totalSent
-            };
+            return results;
         } catch (error) {
-            console.error('Blockchair API error:', error);
+            console.error('Blockchair API batch error:', error);
             
-            // Повторяем запрос при таймауте
             if ((error.message.includes('timeout') || error.message.includes('504')) && retryCount < this.maxRetries) {
-                console.log(`Retrying request for ${address} due to timeout (attempt ${retryCount + 1})`);
                 await new Promise(resolve => setTimeout(resolve, this.retryDelay));
-                return this.checkAddress(address, retryCount + 1);
+                return this.checkAddressesBatch(addresses, retryCount + 1);
             }
             
             if (error.message.includes('429')) {
                 throw new Error('API limit reached');
             }
             
-            // Если все попытки исчерпаны, возвращаем нулевой результат
-            return {
-                balance: 0,
-                transactionCount: 0,
-                hasTransactions: false,
-                totalReceived: 0,
-                totalSent: 0
-            };
+            // В случае ошибки возвращаем пустые результаты для всех адресов
+            return addresses.reduce((acc, address) => {
+                acc[address] = {
+                    balance: 0,
+                    transactionCount: 0,
+                    hasTransactions: false,
+                    totalReceived: 0,
+                    totalSent: 0
+                };
+                return acc;
+            }, {});
         }
     }
 
-    // Оставляем метод checkAddresses для совместимости, но используем последовательные запросы
-    async checkAddresses(addresses) {
-        const results = {};
-        for (const address of addresses) {
-            results[address] = await this.checkAddress(address);
-        }
-        return results;
+    // Оставляем метод checkAddress для обратной совместимости
+    async checkAddress(address, retryCount = 0) {
+        const results = await this.checkAddressesBatch([address], retryCount);
+        return results[address];
     }
 
     getRequestsLeft() {
