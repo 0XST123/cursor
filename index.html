@@ -33,83 +33,45 @@
     <div class="container">
         <h1>Bitcoin Brain Wallet Finder</h1>
         
-        <!-- Controls -->
-        <div class="controls">
-            <button id="startButton">Start</button>
-            <button id="stopButton" disabled>Stop</button>
-        </div>
-
-        <!-- Progress Bar -->
-        <div class="progress-container">
-            <div id="progressBar" class="progress-bar"></div>
+        <!-- Controls Panel -->
+        <div class="controls-panel">
+            <button id="startButton">Старт</button>
+            <button id="pauseButton" disabled>Пауза</button>
+            <button id="reloadButton">Релоад</button>
         </div>
 
         <!-- Stats Panel -->
         <div class="stats-panel">
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <label>Проверено:</label>
-                    <span id="checkedCount">0</span>
-                </div>
-                <div class="stat-item">
-                    <label>Найдено:</label>
-                    <span id="foundAddressCount">0</span>
-                </div>
-                <div class="stat-item">
-                    <label>Баланс:</label>
-                    <span id="foundBtcAmount">0.00000000 BTC</span>
-                </div>
-                <div class="stat-item">
-                    <label>Скорость:</label>
-                    <span id="speed">0</span> адр/сек
-                </div>
-                <div class="stat-item">
-                    <label>API лимит:</label>
-                    <span id="apiLimit">-</span>
-                </div>
-            </div>
+            <div>Проверено адресов: <span id="checkedCount">0</span></div>
+            <div>Найдено адресов: <span id="foundAddressCount">0</span></div>
+            <div>Найдено BTC: <span id="foundBtcAmount">0.00000000 BTC</span></div>
+            <div>Скорость: <span id="speed">0</span> адр/сек</div>
+            <div>API лимит: <span id="apiLimit">∞</span></div>
         </div>
 
         <!-- Batch Info Panel -->
         <div class="batch-info-panel">
-            <h3>Информация о текущей партии</h3>
-            <div class="batch-info-grid">
-                <div class="batch-info-item">
-                    <label>Номер партии:</label>
-                    <span id="batchNumber">1</span>
-                </div>
-                <div class="batch-info-item">
-                    <label>Прогресс:</label>
-                    <span id="batchProgress">0%</span>
-                </div>
+            <div>Номер партии: <span id="batchNumber">1</span></div>
+            <div>Прогресс: <span id="batchProgress">0%</span></div>
+            <div class="progress-bar-container">
+                <div id="progressBar" class="progress-bar"></div>
             </div>
         </div>
 
         <!-- Wallet Types Panel -->
         <div class="wallet-types-panel">
-            <h3>Типы найденных кошельков</h3>
-            <div class="wallet-types-grid">
-                <div class="wallet-type-item">
-                    <label>Новые:</label>
-                    <span id="newCount" class="status-new">0</span>
-                </div>
-                <div class="wallet-type-item">
-                    <label>Использованные:</label>
-                    <span id="usedCount" class="status-used">0</span>
-                </div>
-                <div class="wallet-type-item">
-                    <label>С балансом:</label>
-                    <span id="valuableCount" class="status-valuable">0</span>
-                </div>
-            </div>
+            <div>Новые: <span id="newCount">0</span></div>
+            <div>Использованные: <span id="usedCount">0</span></div>
+            <div>С балансом: <span id="valuableCount">0</span></div>
         </div>
 
         <!-- Results Table -->
-        <div class="results-container">
-            <h3>Текущая партия:</h3>
-            <table id="resultsTable">
+        <div class="table-container">
+            <h3>Текущая партия</h3>
+            <table>
                 <thead>
                     <tr>
+                        <th>№</th>
                         <th>Адрес</th>
                         <th>Приватный ключ</th>
                         <th>Баланс</th>
@@ -121,9 +83,9 @@
         </div>
 
         <!-- History Table -->
-        <div class="history-container">
-            <h3>История найденных адресов:</h3>
-            <table id="historyTable">
+        <div class="table-container">
+            <h3>История найденных адресов</h3>
+            <table>
                 <thead>
                     <tr>
                         <th>Партия</th>

@@ -6,7 +6,7 @@ class WalletFinder {
         this.api = BitcoinAPIFactory.createAPI();
         
         // Batch settings
-        this.batchSize = 20;
+        this.batchSize = 100;
         this.currentBatch = {
             number: 1,
             keys: [],
@@ -54,7 +54,8 @@ class WalletFinder {
         try {
             // Get UI elements
             this.startButton = document.getElementById('startButton');
-            this.stopButton = document.getElementById('stopButton');
+            this.pauseButton = document.getElementById('pauseButton');
+            this.reloadButton = document.getElementById('reloadButton');
             this.checkedCountElement = document.getElementById('checkedCount');
             this.foundAddressCountElement = document.getElementById('foundAddressCount');
             this.foundBtcAmountElement = document.getElementById('foundBtcAmount');
@@ -73,13 +74,14 @@ class WalletFinder {
             this.usedCountElement = document.getElementById('usedCount');
             this.valuableCountElement = document.getElementById('valuableCount');
 
-            if (!this.startButton || !this.stopButton) {
+            if (!this.startButton || !this.pauseButton || !this.reloadButton) {
                 throw new Error('Required UI elements not found');
             }
 
             // Add event listeners
             this.startButton.addEventListener('click', () => this.start());
-            this.stopButton.addEventListener('click', () => this.stop());
+            this.pauseButton.addEventListener('click', () => this.pause());
+            this.reloadButton.addEventListener('click', () => this.reload());
 
             // Add auto-save on page unload
             window.addEventListener('beforeunload', () => this.saveState());
@@ -211,6 +213,45 @@ class WalletFinder {
         this.updateStats();
     }
 
+    reload() {
+        // Clear main table
+        this.resultsBody.innerHTML = '';
+        
+        // Reset statistics
+        this.stats = {
+            new: 0,
+            used: 0,
+            valuable: 0
+        };
+        this.checkedCount = 0;
+        this.foundCount = 0;
+        this.totalBtcFound = 0;
+        
+        // Reset batch
+        this.currentBatch = {
+            number: 1,
+            keys: [],
+            progress: 0,
+            processed: 0
+        };
+        
+        // Update UI
+        this.updateStats();
+        
+        // Enable start button
+        this.startButton.disabled = false;
+        this.pauseButton.disabled = true;
+        
+        console.log('Application reloaded');
+    }
+
+    pause() {
+        this.isRunning = false;
+        this.startButton.disabled = false;
+        this.pauseButton.disabled = true;
+        console.log('Processing paused');
+    }
+
     async start() {
         if (this.isRunning) return;
 
@@ -218,10 +259,7 @@ class WalletFinder {
             this.isRunning = true;
             this.startTime = Date.now();
             this.startButton.disabled = true;
-            this.stopButton.disabled = false;
-
-            // Clear only the results table
-            this.resultsBody.innerHTML = '';
+            this.pauseButton.disabled = false;
 
             while (this.isRunning) {
                 try {
@@ -229,7 +267,7 @@ class WalletFinder {
                 } catch (error) {
                     console.error('Error in main loop:', error);
                     if (error.message === 'API limit reached' || error.message === 'API request timeout') {
-                        this.stop();
+                        this.pause();
                         alert(error.message === 'API limit reached' ? 
                             'Достигнут лимит API запросов. Поиск остановлен.' :
                             'Превышено время ожидания API. Поиск остановлен.');
@@ -240,16 +278,7 @@ class WalletFinder {
         } catch (error) {
             console.error('Critical error in start:', error);
             alert(`Критическая ошибка: ${error.message}`);
-        } finally {
-            this.startButton.disabled = false;
-            this.stopButton.disabled = true;
         }
-    }
-
-    stop() {
-        this.isRunning = false;
-        this.startButton.disabled = false;
-        this.stopButton.disabled = true;
     }
 
     getWalletStatus(addressInfo) {
@@ -276,7 +305,7 @@ class WalletFinder {
         };
     }
 
-    addResultToTable(walletData, info) {
+    addResultToTable(walletData, info, index) {
         const row = document.createElement('tr');
         
         // Проверяем, что баланс это число и больше 0
@@ -286,6 +315,7 @@ class WalletFinder {
         }
         
         row.innerHTML = `
+            <td>${index + 1}</td>
             <td>${walletData.address}</td>
             <td>${walletData.privateKey}</td>
             <td class="balance-column">${balance.toFixed(8)} BTC</td>
@@ -334,10 +364,11 @@ class WalletFinder {
         }
 
         // Process current batch
-        for (const walletData of this.currentBatch.keys) {
+        for (let i = 0; i < this.currentBatch.keys.length; i++) {
             if (!this.isRunning) break;
 
             try {
+                const walletData = this.currentBatch.keys[i];
                 const address = walletData.address;
                 const addressInfo = await this.api.checkAddress(address);
                 this.checkedCount++;
@@ -350,14 +381,14 @@ class WalletFinder {
                 // Update batch progress
                 this.currentBatch.progress = (this.currentBatch.processed / this.batchSize) * 100;
                 
-                // Add to main table
+                // Add to main table with index
                 this.addResultToTable({
                     address: address,
                     privateKey: walletData.privateKey
                 }, {
                     balance: addressInfo.balance,
                     status: status
-                });
+                }, i);
 
                 // Add to history if valuable or used
                 if (status.type !== 'new') {
@@ -386,14 +417,16 @@ class WalletFinder {
             }
         }
 
-        // Clear batch and prepare for next one
-        console.log(`Batch #${this.currentBatch.number} completed`);
-        this.resultsBody.innerHTML = ''; // Clear results table
-        this.currentBatch.number++; // Increment batch number
-        this.currentBatch.keys = []; // Clear keys
-        this.currentBatch.processed = 0; // Reset processed count
-        this.currentBatch.progress = 0; // Reset progress
-        this.saveState(); // Save state after batch completion
+        // If batch is complete
+        if (this.currentBatch.processed >= this.batchSize) {
+            console.log(`Batch #${this.currentBatch.number} completed`);
+            this.resultsBody.innerHTML = ''; // Clear results table
+            this.currentBatch.number++; // Increment batch number
+            this.currentBatch.keys = []; // Clear keys
+            this.currentBatch.processed = 0; // Reset processed count
+            this.currentBatch.progress = 0; // Reset progress
+            this.saveState(); // Save state after batch completion
+        }
     }
 
     async updateApiLimit() {
@@ -408,9 +441,4 @@ class WalletFinder {
         const walletData = this.wallet.generateWallet(phrase);
         console.log('Wallet generation test result:', walletData);
     }
-}
-
-// Initialize the application when the page loads
-document.addEventListener('DOMContentLoaded', () => {
-    window.walletFinder = new WalletFinder();
-}); 
+} 
