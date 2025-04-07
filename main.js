@@ -492,8 +492,8 @@ class WalletFinder {
                 }
             }
 
-            // Process current batch in chunks of 5 wallets (10 addresses)
-            const CHUNK_SIZE = 5;
+            // Process current batch in chunks of 2 wallets (4 addresses)
+            const CHUNK_SIZE = 2;
             for (let i = this.currentBatch.processed; i < this.currentBatch.keys.length; i += CHUNK_SIZE) {
                 if (!this.isRunning) {
                     console.log(`Processing stopped at position ${i}`);
