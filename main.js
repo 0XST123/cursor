@@ -338,7 +338,7 @@ class WalletFinder {
             if (!this.isRunning) break;
 
             try {
-                const address = walletData.addresses.compressed;
+                const address = walletData.address;
                 const addressInfo = await this.api.checkAddress(address);
                 this.checkedCount++;
                 this.currentBatch.processed++;
