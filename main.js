@@ -25,6 +25,8 @@ class WalletFinder {
         this.foundCount = 0;
         this.totalBtcFound = 0;
         this.startTime = null;
+        this.pauseTime = null;
+        this.totalPauseTime = 0;
         this.isRunning = false;
 
         // Initialize UI
@@ -113,9 +115,15 @@ class WalletFinder {
         this.foundBtcAmountElement.textContent = this.totalBtcFound.toFixed(8) + ' BTC';
         
         // Calculate and update speed
-        const elapsedSeconds = (Date.now() - this.startTime) / 1000;
-        const speed = (this.checkedCount / elapsedSeconds).toFixed(2);
-        this.speedElement.textContent = speed;
+        if (this.startTime) {
+            const currentTime = this.isRunning ? Date.now() : (this.pauseTime || Date.now());
+            const effectiveTime = currentTime - this.startTime - this.totalPauseTime;
+            const elapsedSeconds = effectiveTime / 1000;
+            const speed = elapsedSeconds > 0 ? (this.checkedCount / elapsedSeconds).toFixed(2) : '0.00';
+            this.speedElement.textContent = speed;
+        } else {
+            this.speedElement.textContent = '0.00';
+        }
         
         // Update batch information
         this.batchNumberElement.textContent = this.currentBatch.number;
@@ -136,7 +144,6 @@ class WalletFinder {
         }
     }
 
-    // Save current state including history
     saveState() {
         const state = {
             currentBatch: this.currentBatch,
@@ -144,6 +151,9 @@ class WalletFinder {
             checkedCount: this.checkedCount,
             foundCount: this.foundCount,
             totalBtcFound: this.totalBtcFound,
+            startTime: this.startTime,
+            pauseTime: this.pauseTime,
+            totalPauseTime: this.totalPauseTime,
             history: Array.from(this.historyBody.children).map(row => ({
                 batchNumber: parseInt(row.cells[0].textContent),
                 address: row.cells[1].textContent,
@@ -156,7 +166,6 @@ class WalletFinder {
         localStorage.setItem('walletFinderState', JSON.stringify(state));
     }
 
-    // Restore previous state including history
     restoreState() {
         try {
             const savedState = localStorage.getItem('walletFinderState');
@@ -167,11 +176,15 @@ class WalletFinder {
                 this.checkedCount = state.checkedCount;
                 this.foundCount = state.foundCount;
                 this.totalBtcFound = state.totalBtcFound;
+                this.startTime = state.startTime;
+                this.pauseTime = state.pauseTime;
+                this.totalPauseTime = state.totalPauseTime || 0;
 
                 // Restore history
                 if (state.history) {
                     this.historyBody.innerHTML = '';
-                    state.history.forEach(item => {
+                    // Разворачиваем массив, чтобы сохранить порядок новые-сверху
+                    [...state.history].reverse().forEach(item => {
                         const row = document.createElement('tr');
                         row.innerHTML = `
                             <td>${item.batchNumber}</td>
@@ -209,6 +222,9 @@ class WalletFinder {
         this.checkedCount = 0;
         this.foundCount = 0;
         this.totalBtcFound = 0;
+        this.startTime = null;
+        this.pauseTime = null;
+        this.totalPauseTime = 0;
         this.resultsBody.innerHTML = '';
         this.updateStats();
     }
@@ -226,6 +242,9 @@ class WalletFinder {
         this.checkedCount = 0;
         this.foundCount = 0;
         this.totalBtcFound = 0;
+        this.startTime = null;
+        this.pauseTime = null;
+        this.totalPauseTime = 0;
         
         // Reset batch
         this.currentBatch = {
@@ -246,18 +265,41 @@ class WalletFinder {
     }
 
     pause() {
+        if (!this.isRunning) return;
+        
         this.isRunning = false;
+        this.pauseTime = Date.now();
         this.startButton.disabled = false;
         this.pauseButton.disabled = true;
-        console.log('Processing paused');
+        
+        // Сохраняем текущее состояние
+        this.saveState();
+        console.log(`Processing paused at batch #${this.currentBatch.number}, position ${this.currentBatch.processed}`);
     }
 
     async start() {
         if (this.isRunning) return;
 
         try {
+            // Если есть незавершенная партия, продолжаем с текущей позиции
+            if (this.currentBatch.keys.length > 0 && this.currentBatch.processed < this.batchSize) {
+                console.log(`Resuming batch #${this.currentBatch.number} from position ${this.currentBatch.processed}`);
+            }
+
             this.isRunning = true;
-            this.startTime = Date.now();
+            
+            // Обновляем время паузы при возобновлении
+            if (this.pauseTime) {
+                this.totalPauseTime += Date.now() - this.pauseTime;
+                this.pauseTime = null;
+            }
+            
+            // Инициализируем время старта, если это первый запуск
+            if (!this.startTime) {
+                this.startTime = Date.now();
+                this.totalPauseTime = 0;
+            }
+            
             this.startButton.disabled = true;
             this.pauseButton.disabled = false;
 
@@ -274,6 +316,9 @@ class WalletFinder {
                         break;
                     }
                 }
+                
+                // Добавляем задержку между итерациями для возможности прерывания
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
         } catch (error) {
             console.error('Critical error in start:', error);
@@ -314,15 +359,23 @@ class WalletFinder {
             row.classList.add('has-balance');
         }
         
+        // При добавлении в начало таблицы корректируем номер
+        const displayIndex = this.currentBatch.processed - index;
+        
         row.innerHTML = `
-            <td>${index + 1}</td>
+            <td>${displayIndex}</td>
             <td>${walletData.address}</td>
             <td>${walletData.privateKey}</td>
             <td class="balance-column">${balance.toFixed(8)} BTC</td>
             <td class="status-${info.status.type}">${info.status.text}</td>
         `;
         
-        this.resultsBody.appendChild(row);
+        // Добавляем новую строку в начало таблицы
+        if (this.resultsBody.firstChild) {
+            this.resultsBody.insertBefore(row, this.resultsBody.firstChild);
+        } else {
+            this.resultsBody.appendChild(row);
+        }
     }
 
     addToHistory(data) {
@@ -350,7 +403,12 @@ class WalletFinder {
             <td>${new Date(data.timestamp).toLocaleString()}</td>
         `;
         
-        this.historyBody.appendChild(row);
+        // Добавляем новую строку в начало таблицы
+        if (this.historyBody.firstChild) {
+            this.historyBody.insertBefore(row, this.historyBody.firstChild);
+        } else {
+            this.historyBody.appendChild(row);
+        }
     }
 
     async processNextBatch() {
@@ -364,8 +422,11 @@ class WalletFinder {
         }
 
         // Process current batch
-        for (let i = 0; i < this.currentBatch.keys.length; i++) {
-            if (!this.isRunning) break;
+        for (let i = this.currentBatch.processed; i < this.currentBatch.keys.length; i++) {
+            if (!this.isRunning) {
+                console.log(`Processing stopped at position ${i}`);
+                return;
+            }
 
             try {
                 const walletData = this.currentBatch.keys[i];
@@ -409,6 +470,9 @@ class WalletFinder {
                 this.updateStats();
                 await this.updateApiLimit();
                 
+                // Добавляем небольшую задержку между проверками
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
             } catch (error) {
                 console.error('Error processing address:', error);
                 if (error.message === 'API limit reached' || error.message === 'API request timeout') {
@@ -420,12 +484,16 @@ class WalletFinder {
         // If batch is complete
         if (this.currentBatch.processed >= this.batchSize) {
             console.log(`Batch #${this.currentBatch.number} completed`);
-            this.resultsBody.innerHTML = ''; // Clear results table
+            // Сохраняем состояние до очистки таблицы
+            this.saveState();
+            
             this.currentBatch.number++; // Increment batch number
             this.currentBatch.keys = []; // Clear keys
             this.currentBatch.processed = 0; // Reset processed count
             this.currentBatch.progress = 0; // Reset progress
-            this.saveState(); // Save state after batch completion
+            
+            // Очищаем таблицу после сохранения состояния
+            this.resultsBody.innerHTML = '';
         }
     }
 
@@ -442,3 +510,5 @@ class WalletFinder {
         console.log('Wallet generation test result:', walletData);
     }
 } 
+// }); 
+// }); 
