@@ -1,7 +1,6 @@
 // API провайдер для Blockchair
 class BlockchairAPI {
     constructor() {
-        // Тестовый ключ API, для продакшена нужно заменить на реальный
         this.API_KEY = 'A___XlvcUCcOjwiFTR2rRKASglriL77n';
         this.baseUrl = 'https://api.blockchair.com/bitcoin';
         this.requestsLeft = 0;

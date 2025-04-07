@@ -240,8 +240,13 @@ tr:hover {
 }
 
 .status-new {
-    color: #0d6efd;
-    background-color: #e7f1ff;
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.status-used {
+    background-color: #fff3e0;
+    color: #f57c00;
 }
 
 .status-empty {
