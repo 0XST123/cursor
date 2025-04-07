@@ -18,9 +18,10 @@ class BlockchairAPI {
             }
 
             // Формируем URL для batch-запроса
-            const addressesStr = addresses.join(',');
-            const url = `${this.baseUrl}/dashboards/addresses/${addressesStr}`;
+            // Blockchair требует чтобы адреса были переданы как параметр addresses=addr1,addr2,...
+            const url = `${this.baseUrl}/dashboards/addresses`;
             const params = new URLSearchParams({
+                addresses: addresses.join(','),
                 key: this.API_KEY,
                 limit: '0',
                 state: 'latest',
