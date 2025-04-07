@@ -135,21 +135,23 @@ class WalletFinder {
                     const effectiveTime = currentTime - this.startTime - this.totalPauseTime;
                     const elapsedSeconds = effectiveTime / 1000;
                     const speed = elapsedSeconds > 0 ? (this.checkedWallets / elapsedSeconds).toFixed(2) : '0.00';
-                    this.speedElement.textContent = `${speed} w/s`;
+                    this.speedElement.textContent = `${speed}`;
                 } else {
-                    this.speedElement.textContent = '0.00 w/s';
+                    this.speedElement.textContent = '0.00';
                 }
             }
             
-            // Update batch information
+            // Update batch number
             if (this.batchNumberElement) {
-                this.batchNumberElement.textContent = this.currentBatch.number;
-            }
-            if (this.batchProgressElement) {
-                this.batchProgressElement.textContent = `${Math.round(this.currentBatch.progress)}%`;
+                this.batchNumberElement.textContent = `${this.currentBatch.number}`;
             }
             
-            // Update wallet type counts
+            // Update progress bar
+            if (this.progressBar) {
+                this.progressBar.style.width = `${this.currentBatch.progress}%`;
+            }
+            
+            // Update status counts
             if (this.newCountElement) {
                 this.newCountElement.textContent = this.stats.new;
             }
@@ -158,19 +160,6 @@ class WalletFinder {
             }
             if (this.valuableCountElement) {
                 this.valuableCountElement.textContent = this.stats.valuable;
-            }
-            
-            // Update progress bar
-            if (this.progressBar) {
-                this.progressBar.style.width = `${this.currentBatch.progress}%`;
-            }
-            
-            // Update API limit if available
-            if (this.apiLimitElement) {
-                const requestsLeft = this.api.getRequestsLeft();
-                if (requestsLeft !== Infinity) {
-                    this.apiLimitElement.textContent = requestsLeft;
-                }
             }
         } catch (error) {
             console.error('Error updating stats:', error);
@@ -365,16 +354,15 @@ class WalletFinder {
             };
         }
         
-        // Проверяем наличие реальных транзакций
-        // Кошелек считается использованным только если есть подтвержденные транзакции
-        if (data.hasTransactions && (data.totalReceived > 0 || data.totalSent > 0)) {
+        // Если есть история транзакций - использованный кошелек
+        if (data.totalReceived > 0 || data.totalSent > 0) {
             return {
                 type: 'used',
-                text: 'Used'
+                text: `Used (Total: ${data.totalReceived.toFixed(8)} BTC)`
             };
         }
         
-        // Если нет транзакций и баланс 0 - новый кошелек
+        // Если нет ни баланса, ни истории - новый кошелек
         return {
             type: 'new',
             text: 'New'
@@ -470,8 +458,6 @@ class WalletFinder {
                             if (wallet && wallet.compressed && wallet.compressed.address &&
                                 wallet.uncompressed && wallet.uncompressed.address) {
                                 this.currentBatch.keys.push(wallet);
-                            } else {
-                                console.error('Invalid wallet generated for phrase:', phrase);
                             }
                         } catch (error) {
                             console.error('Error generating wallet for phrase:', phrase, error);
@@ -524,18 +510,6 @@ class WalletFinder {
                     const totalReceived = compressedInfo.totalReceived + uncompressedInfo.totalReceived;
                     const totalSent = compressedInfo.totalSent + uncompressedInfo.totalSent;
                     
-                    // Логируем данные для отладки
-                    console.log('Wallet data:', {
-                        compressed: {
-                            address: walletData.compressed.address,
-                            ...compressedInfo
-                        },
-                        uncompressed: {
-                            address: walletData.uncompressed.address,
-                            ...uncompressedInfo
-                        }
-                    });
-                    
                     const status = this.getWalletStatus({ 
                         balance, 
                         hasTransactions,
@@ -572,7 +546,6 @@ class WalletFinder {
                     
                     // Update UI
                     this.updateStats();
-                    await this.updateApiLimit();
                     
                     // Добавляем небольшую задержку между проверками
                     await new Promise(resolve => setTimeout(resolve, 200));
@@ -605,13 +578,6 @@ class WalletFinder {
         } catch (error) {
             console.error('Error in batch processing:', error);
             throw error;
-        }
-    }
-
-    async updateApiLimit() {
-        const requestsLeft = this.api.getRequestsLeft();
-        if (requestsLeft !== Infinity) {
-            this.apiLimitElement.textContent = requestsLeft;
         }
     }
 
