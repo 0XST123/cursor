@@ -13,6 +13,7 @@ class WalletFinder {
             this.totalBtcFound = 0;
             this.stats = {
                 new: 0,
+                used: 0,
                 valuable: 0
             };
             
@@ -116,7 +117,7 @@ class WalletFinder {
 
     getWalletStatus(addressInfo) {
         // Если данные не определены или произошла ошибка
-        if (!addressInfo || typeof addressInfo.balance === 'undefined' || typeof addressInfo.transactionCount === 'undefined') {
+        if (!addressInfo || typeof addressInfo.balance === 'undefined') {
             return {
                 type: 'invalid',
                 text: 'Не валидный'
@@ -131,15 +132,15 @@ class WalletFinder {
             };
         }
 
-        // Если нет транзакций
-        if (addressInfo.transactionCount === 0) {
+        // Если нет транзакций - новый адрес
+        if (!addressInfo.hasTransactions) {
             return {
                 type: 'new',
                 text: 'Новый'
             };
         }
 
-        // Если есть транзакции
+        // Если есть транзакции - использованный адрес
         return {
             type: 'used',
             text: 'Использовался'
