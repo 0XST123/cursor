@@ -94,6 +94,17 @@ class WalletFinder {
     }
 
     updateStats() {
+        // Check if all UI elements are available
+        if (!this.checkedCountElement || !this.foundAddressCountElement || 
+            !this.foundBtcAmountElement || !this.speedElement || 
+            !this.batchNumberElement || !this.batchProgressElement ||
+            !this.newCountElement || !this.usedCountElement ||
+            !this.valuableCountElement || !this.progressBar ||
+            !this.apiLimitElement) {
+            console.error('UI elements not ready for stats update');
+            return;
+        }
+        
         // Update general stats
         this.checkedCountElement.textContent = this.checkedCount;
         this.foundAddressCountElement.textContent = this.foundCount;
@@ -399,8 +410,7 @@ class WalletFinder {
     }
 }
 
-// Remove duplicate initialization
 // Initialize the application when the page loads
-// document.addEventListener('DOMContentLoaded', () => {
-//     window.walletFinder = new WalletFinder();
-// }); 
+document.addEventListener('DOMContentLoaded', () => {
+    window.walletFinder = new WalletFinder();
+}); 
