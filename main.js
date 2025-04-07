@@ -93,6 +93,36 @@ class WalletFinder {
         }
     }
 
+    updateStats() {
+        // Update general stats
+        this.checkedCountElement.textContent = this.checkedCount;
+        this.foundAddressCountElement.textContent = this.foundCount;
+        this.foundBtcAmountElement.textContent = this.totalBtcFound.toFixed(8) + ' BTC';
+        
+        // Calculate and update speed
+        const elapsedSeconds = (Date.now() - this.startTime) / 1000;
+        const speed = (this.checkedCount / elapsedSeconds).toFixed(2);
+        this.speedElement.textContent = speed;
+        
+        // Update batch information
+        this.batchNumberElement.textContent = this.currentBatch.number;
+        this.batchProgressElement.textContent = `${Math.round(this.currentBatch.progress)}%`;
+        
+        // Update wallet type counts
+        this.newCountElement.textContent = this.stats.new;
+        this.usedCountElement.textContent = this.stats.used;
+        this.valuableCountElement.textContent = this.stats.valuable;
+        
+        // Update progress bar
+        this.progressBar.style.width = `${this.currentBatch.progress}%`;
+        
+        // Update API limit if available
+        const requestsLeft = this.api.getRequestsLeft();
+        if (requestsLeft !== Infinity) {
+            this.apiLimitElement.textContent = requestsLeft;
+        }
+    }
+
     // Save current state including history
     saveState() {
         const state = {
@@ -142,7 +172,7 @@ class WalletFinder {
                     });
                 }
 
-                this.updateUI();
+                this.updateStats();
             }
         } catch (error) {
             console.error('Error restoring state:', error);
@@ -167,7 +197,7 @@ class WalletFinder {
         this.foundCount = 0;
         this.totalBtcFound = 0;
         this.resultsBody.innerHTML = '';
-        this.updateUI();
+        this.updateStats();
     }
 
     async start() {
@@ -282,36 +312,6 @@ class WalletFinder {
         this.historyBody.appendChild(row);
     }
 
-    updateStats() {
-        // Update general stats
-        this.checkedCountElement.textContent = this.checkedCount;
-        this.foundAddressCountElement.textContent = this.foundCount;
-        this.foundBtcAmountElement.textContent = this.totalBtcFound.toFixed(8) + ' BTC';
-        
-        // Calculate and update speed
-        const elapsedSeconds = (Date.now() - this.startTime) / 1000;
-        const speed = (this.checkedCount / elapsedSeconds).toFixed(2);
-        this.speedElement.textContent = speed;
-        
-        // Update batch information
-        this.batchNumberElement.textContent = this.currentBatch.number;
-        this.batchProgressElement.textContent = `${Math.round(this.currentBatch.progress)}%`;
-        
-        // Update wallet type counts
-        this.newCountElement.textContent = this.stats.new;
-        this.usedCountElement.textContent = this.stats.used;
-        this.valuableCountElement.textContent = this.stats.valuable;
-        
-        // Update progress bar
-        this.progressBar.style.width = `${this.currentBatch.progress}%`;
-        
-        // Update API limit if available
-        const requestsLeft = this.api.getRequestsLeft();
-        if (requestsLeft !== Infinity) {
-            this.apiLimitElement.textContent = requestsLeft;
-        }
-    }
-
     async processNextBatch() {
         // Generate new batch if needed
         if (this.currentBatch.keys.length === 0) {
@@ -386,11 +386,9 @@ class WalletFinder {
     }
 
     async updateApiLimit() {
-        try {
-            const limit = await this.api.getRequestsLeft();
-            this.apiLimitElement.textContent = limit;
-        } catch (error) {
-            console.error('Error updating API limit:', error);
+        const requestsLeft = this.api.getRequestsLeft();
+        if (requestsLeft !== Infinity) {
+            this.apiLimitElement.textContent = requestsLeft;
         }
     }
 
