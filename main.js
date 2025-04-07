@@ -350,26 +350,27 @@ class WalletFinder {
         };
     }
 
-    addResultToTable(walletData, info, index) {
+    addResultToTable(walletData, checkResult, index) {
         const row = document.createElement('tr');
-        
-        // Проверяем, что баланс это число и больше 0
-        const balance = Number(info.balance) || 0;
-        if (balance > 0) {
+        if (checkResult.balance > 0) {
             row.classList.add('has-balance');
         }
+
+        // Добавляем индекс для нумерации в текущем батче
+        const displayIndex = this.currentBatch.number * this.batchSize - (this.batchSize - index - 1);
         
-        // Корректируем номер для отображения в обратном порядке
-        const displayIndex = this.currentBatch.processed - index;
-        
+        // Создаем ячейки для обоих типов адресов
         row.innerHTML = `
             <td>${displayIndex}</td>
-            <td>${walletData.address}</td>
+            <td>
+                C: ${walletData.compressed.address}<br>
+                U: ${walletData.uncompressed.address}
+            </td>
             <td>${walletData.privateKey}</td>
-            <td class="balance-column">${balance.toFixed(8)} BTC</td>
-            <td class="status-${info.status.type}">${info.status.text}</td>
+            <td class="balance-column">${checkResult.balance.toFixed(8)} BTC</td>
+            <td class="status-${checkResult.status.type}">${checkResult.status.text}</td>
         `;
-        
+
         // Добавляем новую строку в начало таблицы
         if (this.resultsBody.firstChild) {
             this.resultsBody.insertBefore(row, this.resultsBody.firstChild);
@@ -381,9 +382,11 @@ class WalletFinder {
     addToHistory(data) {
         // Проверяем, не существует ли уже такой адрес в истории
         const existingRows = Array.from(this.historyBody.children);
-        const isDuplicate = existingRows.some(row => 
-            row.cells[1].textContent === data.address
-        );
+        const isDuplicate = existingRows.some(row => {
+            const addresses = row.cells[1].textContent.split('\n');
+            return addresses.includes(data.compressed.address) || 
+                   addresses.includes(data.uncompressed.address);
+        });
 
         if (isDuplicate) {
             return;
@@ -396,7 +399,10 @@ class WalletFinder {
         
         row.innerHTML = `
             <td>${data.batchNumber}</td>
-            <td>${data.address}</td>
+            <td>
+                C: ${data.compressed.address}<br>
+                U: ${data.uncompressed.address}
+            </td>
             <td>${data.privateKey}</td>
             <td class="balance-column">${data.balance.toFixed(8)} BTC</td>
             <td class="status-${data.status.type}">${data.status.text}</td>
@@ -430,37 +436,40 @@ class WalletFinder {
 
             try {
                 const walletData = this.currentBatch.keys[i];
-                const address = walletData.address;
-                const addressInfo = await this.api.checkAddress(address);
-                this.checkedCount++;
+                
+                // Проверяем оба адреса
+                const compressedInfo = await this.api.checkAddress(walletData.compressed.address);
+                const uncompressedInfo = await this.api.checkAddress(walletData.uncompressed.address);
+                
+                // Увеличиваем счетчик на 2, так как проверили 2 адреса
+                this.checkedCount += 2;
                 this.currentBatch.processed++;
                 
-                // Get wallet status and update stats
-                const status = this.getWalletStatus(addressInfo);
+                // Определяем статус и баланс (берем максимальный из двух адресов)
+                const balance = Math.max(compressedInfo.balance, uncompressedInfo.balance);
+                const status = this.getWalletStatus({ balance });
                 this.stats[status.type]++;
                 
                 // Update batch progress
                 this.currentBatch.progress = (this.currentBatch.processed / this.batchSize) * 100;
                 
                 // Add to main table with index
-                this.addResultToTable({
-                    address: address,
-                    privateKey: walletData.privateKey
-                }, {
-                    balance: addressInfo.balance,
+                this.addResultToTable(walletData, {
+                    balance: balance,
                     status: status
                 }, i);
 
                 // Add to history if valuable or used
                 if (status.type !== 'new') {
                     this.foundCount++;
-                    this.totalBtcFound += addressInfo.balance;
+                    this.totalBtcFound += balance;
                     
                     this.addToHistory({
                         batchNumber: this.currentBatch.number,
-                        address: address,
+                        compressed: walletData.compressed,
+                        uncompressed: walletData.uncompressed,
                         privateKey: walletData.privateKey,
-                        balance: addressInfo.balance,
+                        balance: balance,
                         status: status,
                         timestamp: new Date().toISOString()
                     });
@@ -472,28 +481,28 @@ class WalletFinder {
                 
                 // Добавляем небольшую задержку между проверками
                 await new Promise(resolve => setTimeout(resolve, 200));
-                
             } catch (error) {
-                console.error('Error processing address:', error);
-                if (error.message === 'API limit reached' || error.message === 'API request timeout') {
-                    throw error;
-                }
+                console.error(`Error processing wallet at position ${i}:`, error);
+                // Continue with next wallet
+                continue;
             }
         }
 
-        // If batch is complete
-        if (this.currentBatch.processed >= this.batchSize) {
+        // Batch completed
+        if (this.currentBatch.processed >= this.currentBatch.keys.length) {
             console.log(`Batch #${this.currentBatch.number} completed`);
-            // Сохраняем состояние до очистки таблицы
-            this.saveState();
-            
-            this.currentBatch.number++; // Increment batch number
-            this.currentBatch.keys = []; // Clear keys
-            this.currentBatch.processed = 0; // Reset processed count
-            this.currentBatch.progress = 0; // Reset progress
-            
-            // Очищаем таблицу после сохранения состояния
-            this.resultsBody.innerHTML = '';
+            this.currentBatch.number++;
+            this.currentBatch.keys = [];
+            this.currentBatch.processed = 0;
+            this.currentBatch.progress = 0;
+        }
+
+        // Save state
+        this.saveState();
+
+        // Continue with next batch if running
+        if (this.isRunning) {
+            this.processNextBatch();
         }
     }
 
@@ -505,9 +514,34 @@ class WalletFinder {
     }
 
     testWalletGeneration() {
-        const phrase = 'test phrase';
-        const walletData = this.wallet.generateWallet(phrase);
-        console.log('Wallet generation test result:', walletData);
+        console.log('Testing wallet generation...');
+        
+        // Test with a known phrase
+        const testPhrase = 'test phrase';
+        console.log('Test phrase:', testPhrase);
+        
+        // Generate wallet
+        const walletData = this.wallet.generateWallet(testPhrase);
+        
+        // Log detailed results
+        console.log('Generated wallet data:');
+        console.log('Private Key:', walletData.privateKey);
+        console.log('Compressed:');
+        console.log('  Public Key:', walletData.compressed.publicKey);
+        console.log('  Address:', walletData.compressed.address);
+        console.log('Uncompressed:');
+        console.log('  Public Key:', walletData.uncompressed.publicKey);
+        console.log('  Address:', walletData.uncompressed.address);
+        
+        // Validate results
+        console.log('\nValidation:');
+        console.log('Private key length:', walletData.privateKey.length === 64 ? 'OK (64 chars)' : 'ERROR');
+        console.log('Compressed public key starts with:', walletData.compressed.publicKey.substring(0, 2));
+        console.log('Uncompressed public key starts with:', walletData.uncompressed.publicKey.substring(0, 2));
+        console.log('Compressed address starts with:', walletData.compressed.address[0]);
+        console.log('Uncompressed address starts with:', walletData.uncompressed.address[0]);
+        
+        return walletData;
     }
 } 
 // }); 

@@ -91,10 +91,10 @@ class BitcoinWallet {
         }
     }
 
-    // Generate public key from private key
+    // Original method for compressed public keys
     generatePublicKey(privateKeyHex) {
         try {
-            console.log('Generating public key...');
+            console.log('Generating compressed public key...');
             if (!privateKeyHex) {
                 throw new Error('Пустой приватный ключ');
             }
@@ -104,18 +104,39 @@ class BitcoinWallet {
             // Get public key in compressed format
             const publicKey = keyPair.getPublic(true, 'hex');
             
-            console.log('Public key generated successfully');
+            console.log('Compressed public key generated successfully');
             return publicKey;
         } catch (error) {
-            console.error('Error generating public key:', error);
-            throw new Error(`Ошибка генерации публичного ключа: ${error.message}`);
+            console.error('Error generating compressed public key:', error);
+            throw new Error(`Ошибка генерации сжатого публичного ключа: ${error.message}`);
         }
     }
 
-    // Generate Bitcoin address from public key
+    // New method for uncompressed public keys
+    generateUncompressedPublicKey(privateKeyHex) {
+        try {
+            console.log('Generating uncompressed public key...');
+            if (!privateKeyHex) {
+                throw new Error('Пустой приватный ключ');
+            }
+            
+            // Create key pair from private key
+            const keyPair = this.ec.keyFromPrivate(privateKeyHex, 'hex');
+            // Get public key in uncompressed format
+            const publicKey = keyPair.getPublic(false, 'hex');
+            
+            console.log('Uncompressed public key generated successfully');
+            return publicKey;
+        } catch (error) {
+            console.error('Error generating uncompressed public key:', error);
+            throw new Error(`Ошибка генерации несжатого публичного ключа: ${error.message}`);
+        }
+    }
+
+    // Original method for generating address (compressed)
     generateAddress(publicKeyHex) {
         try {
-            console.log('Generating Bitcoin address...');
+            console.log('Generating Bitcoin address from compressed public key...');
             if (!publicKeyHex) {
                 throw new Error('Пустой публичный ключ');
             }
@@ -147,11 +168,94 @@ class BitcoinWallet {
             const bytes = this.hexToBytes(binaryAddress);
             const address = this.base58Encode(bytes);
             
-            console.log('Bitcoin address generated successfully');
+            console.log('Bitcoin address generated successfully from compressed key');
             return address;
         } catch (error) {
             console.error('Error generating address:', error);
             throw new Error(`Ошибка генерации адреса: ${error.message}`);
+        }
+    }
+
+    // New method for generating address from uncompressed public key
+    generateUncompressedAddress(publicKeyHex) {
+        try {
+            console.log('Generating Bitcoin address from uncompressed public key...');
+            if (!publicKeyHex) {
+                throw new Error('Пустой публичный ключ');
+            }
+            
+            // Convert hex string to WordArray
+            const publicKeyWordArray = CryptoJS.enc.Hex.parse(publicKeyHex);
+            
+            // Step 1: SHA-256 of public key
+            const sha256 = CryptoJS.SHA256(publicKeyWordArray);
+            
+            // Step 2: RIPEMD-160 of SHA-256
+            const ripemd160 = CryptoJS.RIPEMD160(sha256);
+            
+            // Step 3: Add version byte (0x00 for mainnet)
+            const versionByte = '00';
+            const versionAndHash = versionByte + ripemd160.toString();
+            
+            // Step 4: Double SHA-256 for checksum
+            const firstSHA = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(versionAndHash));
+            const secondSHA = CryptoJS.SHA256(firstSHA);
+            
+            // Step 5: Take first 4 bytes of double SHA-256 as checksum
+            const checksum = secondSHA.toString().substring(0, 8);
+            
+            // Step 6: Add checksum to version + hash
+            const binaryAddress = versionAndHash + checksum;
+            
+            // Step 7: Convert hex to bytes and then to base58
+            const bytes = this.hexToBytes(binaryAddress);
+            const address = this.base58Encode(bytes);
+            
+            console.log('Bitcoin address generated successfully from uncompressed key');
+            return address;
+        } catch (error) {
+            console.error('Error generating address:', error);
+            throw new Error(`Ошибка генерации адреса: ${error.message}`);
+        }
+    }
+
+    // Generate both compressed and uncompressed addresses
+    generateBothAddresses(privateKeyHex) {
+        try {
+            const compressedPubKey = this.generatePublicKey(privateKeyHex);
+            const uncompressedPubKey = this.generateUncompressedPublicKey(privateKeyHex);
+            
+            return {
+                compressed: {
+                    publicKey: compressedPubKey,
+                    address: this.generateAddress(compressedPubKey)
+                },
+                uncompressed: {
+                    publicKey: uncompressedPubKey,
+                    address: this.generateUncompressedAddress(uncompressedPubKey)
+                }
+            };
+        } catch (error) {
+            console.error('Error generating both addresses:', error);
+            throw error;
+        }
+    }
+
+    // Generate wallet with both compressed and uncompressed addresses
+    generateWallet(phrase) {
+        try {
+            const privateKey = this.generatePrivateKey(phrase);
+            const addresses = this.generateBothAddresses(privateKey);
+            
+            return {
+                phrase,
+                privateKey,
+                compressed: addresses.compressed,
+                uncompressed: addresses.uncompressed
+            };
+        } catch (error) {
+            console.error('Error generating wallet:', error);
+            throw error;
         }
     }
 
@@ -188,17 +292,6 @@ class BitcoinWallet {
         }
         
         return result;
-    }
-
-    // Generate address from private key
-    generateAddressFromPrivateKey(privateKeyHex) {
-        try {
-            const publicKey = this.generatePublicKey(privateKeyHex);
-            return this.generateAddress(publicKey);
-        } catch (error) {
-            console.error('Error generating address from private key:', error);
-            throw error;
-        }
     }
 
     // Validate private key
@@ -269,25 +362,6 @@ class BitcoinWallet {
                 isValid: false,
                 reason: error.message
             };
-        }
-    }
-
-    // Generate wallet from phrase
-    generateWallet(phrase) {
-        try {
-            const privateKey = this.generatePrivateKey(phrase);
-            const publicKey = this.generatePublicKey(privateKey);
-            const address = this.generateAddress(publicKey);
-            
-            return {
-                phrase,
-                privateKey,
-                publicKey,
-                address
-            };
-        } catch (error) {
-            console.error('Error generating wallet:', error);
-            throw error;
         }
     }
 } 
