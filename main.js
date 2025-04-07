@@ -1,28 +1,39 @@
 class WalletFinder {
     constructor() {
-        try {
-            console.log('Initializing WalletFinder...');
-            this.api = BitcoinAPIFactory.createAPI();
-            this.wallet = new BitcoinWallet();
-            this.phraseGenerator = new PhraseGenerator();
-            
-            // Initialize UI elements
-            this.isRunning = false;
-            this.checkedCount = 0;
-            this.foundCount = 0;
-            this.totalBtcFound = 0;
-            this.stats = {
-                new: 0,
-                used: 0,
-                valuable: 0
-            };
-            
-            this.initializeUI();
-            console.log('\nWalletFinder initialized successfully');
-        } catch (error) {
-            console.error('Error initializing WalletFinder:', error);
-            throw new Error(`Ошибка инициализации WalletFinder: ${error.message}`);
-        }
+        // Initialize components
+        this.wallet = new BitcoinWallet();
+        this.phraseGenerator = new PhraseGenerator();
+        this.api = BitcoinAPIFactory.createAPI();
+        
+        // Batch settings
+        this.batchSize = 20;
+        this.currentBatch = {
+            number: 1,
+            keys: [],
+            progress: 0,
+            processed: 0
+        };
+        
+        // Statistics
+        this.stats = {
+            new: 0,
+            used: 0,
+            valuable: 0
+        };
+        
+        this.checkedCount = 0;
+        this.foundCount = 0;
+        this.totalBtcFound = 0;
+        this.startTime = null;
+        this.isRunning = false;
+
+        // Initialize UI
+        this.initializeUI();
+        
+        // Try to restore previous state
+        this.restoreState();
+        
+        console.log('WalletFinder initialized');
     }
 
     async runTests() {
@@ -54,6 +65,16 @@ class WalletFinder {
             this.apiLimitElement = document.getElementById('apiLimit');
             this.progressBar = document.getElementById('progressBar');
             this.resultsBody = document.getElementById('resultsBody');
+            this.historyBody = document.getElementById('historyBody');
+
+            // Batch info elements
+            this.batchNumberElement = document.getElementById('batchNumber');
+            this.batchProgressElement = document.getElementById('batchProgress');
+
+            // Wallet type stats elements
+            this.newCountElement = document.getElementById('newCount');
+            this.usedCountElement = document.getElementById('usedCount');
+            this.valuableCountElement = document.getElementById('valuableCount');
 
             if (!this.startButton || !this.stopButton) {
                 throw new Error('Required UI elements not found');
@@ -63,13 +84,90 @@ class WalletFinder {
             this.startButton.addEventListener('click', () => this.start());
             this.stopButton.addEventListener('click', () => this.stop());
 
-            // Initialize API limit display
-            this.updateApiLimit();
-            console.log('UI initialized successfully');
+            // Add auto-save on page unload
+            window.addEventListener('beforeunload', () => this.saveState());
+            
         } catch (error) {
             console.error('Error initializing UI:', error);
             throw error;
         }
+    }
+
+    // Save current state including history
+    saveState() {
+        const state = {
+            currentBatch: this.currentBatch,
+            stats: this.stats,
+            checkedCount: this.checkedCount,
+            foundCount: this.foundCount,
+            totalBtcFound: this.totalBtcFound,
+            history: Array.from(this.historyBody.children).map(row => ({
+                batchNumber: parseInt(row.cells[0].textContent),
+                address: row.cells[1].textContent,
+                privateKey: row.cells[2].textContent,
+                balance: parseFloat(row.cells[3].textContent),
+                status: row.cells[4].textContent,
+                timestamp: row.cells[5].textContent
+            }))
+        };
+        localStorage.setItem('walletFinderState', JSON.stringify(state));
+    }
+
+    // Restore previous state including history
+    restoreState() {
+        try {
+            const savedState = localStorage.getItem('walletFinderState');
+            if (savedState) {
+                const state = JSON.parse(savedState);
+                this.currentBatch = state.currentBatch;
+                this.stats = state.stats;
+                this.checkedCount = state.checkedCount;
+                this.foundCount = state.foundCount;
+                this.totalBtcFound = state.totalBtcFound;
+
+                // Restore history
+                if (state.history) {
+                    this.historyBody.innerHTML = '';
+                    state.history.forEach(item => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${item.batchNumber}</td>
+                            <td>${item.address}</td>
+                            <td>${item.privateKey}</td>
+                            <td class="balance-column">${parseFloat(item.balance).toFixed(8)} BTC</td>
+                            <td class="status-${item.status.toLowerCase()}">${item.status}</td>
+                            <td>${item.timestamp}</td>
+                        `;
+                        this.historyBody.appendChild(row);
+                    });
+                }
+
+                this.updateUI();
+            }
+        } catch (error) {
+            console.error('Error restoring state:', error);
+            // If restore fails, reset to initial state
+            this.resetState();
+        }
+    }
+
+    resetState() {
+        this.currentBatch = {
+            number: 1,
+            keys: [],
+            progress: 0,
+            processed: 0
+        };
+        this.stats = {
+            new: 0,
+            used: 0,
+            valuable: 0
+        };
+        this.checkedCount = 0;
+        this.foundCount = 0;
+        this.totalBtcFound = 0;
+        this.resultsBody.innerHTML = '';
+        this.updateUI();
     }
 
     async start() {
@@ -166,7 +264,36 @@ class WalletFinder {
         this.resultsBody.appendChild(row);
     }
 
+    addToHistory(data) {
+        // Проверяем, не существует ли уже такой адрес в истории
+        const existingRows = Array.from(this.historyBody.children);
+        const isDuplicate = existingRows.some(row => 
+            row.cells[1].textContent === data.address
+        );
+
+        if (isDuplicate) {
+            return;
+        }
+
+        const row = document.createElement('tr');
+        if (data.balance > 0) {
+            row.classList.add('has-balance');
+        }
+        
+        row.innerHTML = `
+            <td>${data.batchNumber}</td>
+            <td>${data.address}</td>
+            <td>${data.privateKey}</td>
+            <td class="balance-column">${data.balance.toFixed(8)} BTC</td>
+            <td class="status-${data.status.type}">${data.status.text}</td>
+            <td>${new Date(data.timestamp).toLocaleString()}</td>
+        `;
+        
+        this.historyBody.appendChild(row);
+    }
+
     updateStats() {
+        // Update general stats
         this.checkedCountElement.textContent = this.checkedCount;
         this.foundAddressCountElement.textContent = this.foundCount;
         this.foundBtcAmountElement.textContent = this.totalBtcFound.toFixed(8) + ' BTC';
@@ -176,9 +303,17 @@ class WalletFinder {
         const speed = (this.checkedCount / elapsedSeconds).toFixed(2);
         this.speedElement.textContent = speed;
         
+        // Update batch information
+        this.batchNumberElement.textContent = this.currentBatch.number;
+        this.batchProgressElement.textContent = `${Math.round(this.currentBatch.progress)}%`;
+        
         // Update wallet type counts
-        document.getElementById('newCount').textContent = this.stats.new;
-        document.getElementById('valuableCount').textContent = this.stats.valuable;
+        this.newCountElement.textContent = this.stats.new;
+        this.usedCountElement.textContent = this.stats.used;
+        this.valuableCountElement.textContent = this.stats.valuable;
+        
+        // Update progress bar
+        this.progressBar.style.width = `${this.currentBatch.progress}%`;
         
         // Update API limit if available
         const requestsLeft = this.api.getRequestsLeft();
@@ -188,31 +323,55 @@ class WalletFinder {
     }
 
     async processNextBatch() {
-        const batchSize = 5;
-        const phrases = this.phraseGenerator.generatePhrases(batchSize);
-        
-        for (const phrase of phrases) {
+        // Generate new batch if needed
+        if (this.currentBatch.keys.length === 0) {
+            const phrases = this.phraseGenerator.generatePhrases(this.batchSize);
+            this.currentBatch.keys = phrases.map(phrase => this.wallet.generateWallet(phrase));
+            this.currentBatch.processed = 0;
+            this.currentBatch.progress = 0;
+            console.log(`Generated new batch #${this.currentBatch.number} with ${this.currentBatch.keys.length} keys`);
+        }
+
+        // Process current batch
+        for (const walletData of this.currentBatch.keys) {
             if (!this.isRunning) break;
 
-            const walletData = this.wallet.generateWallet(phrase);
-            
             try {
-                const addressInfo = await this.api.checkAddress(walletData.address);
+                const address = walletData.addresses.compressed;
+                const addressInfo = await this.api.checkAddress(address);
                 this.checkedCount++;
+                this.currentBatch.processed++;
                 
                 // Get wallet status and update stats
                 const status = this.getWalletStatus(addressInfo);
                 this.stats[status.type]++;
                 
-                // Update stats
-                this.foundCount++;
-                this.totalBtcFound += addressInfo.balance;
+                // Update batch progress
+                this.currentBatch.progress = (this.currentBatch.processed / this.batchSize) * 100;
                 
-                // Add to table
-                this.addResultToTable(walletData, {
+                // Add to main table
+                this.addResultToTable({
+                    address: address,
+                    privateKey: walletData.privateKey
+                }, {
                     balance: addressInfo.balance,
                     status: status
                 });
+
+                // Add to history if valuable or used
+                if (status.type !== 'new') {
+                    this.foundCount++;
+                    this.totalBtcFound += addressInfo.balance;
+                    
+                    this.addToHistory({
+                        batchNumber: this.currentBatch.number,
+                        address: address,
+                        privateKey: walletData.privateKey,
+                        balance: addressInfo.balance,
+                        status: status,
+                        timestamp: new Date().toISOString()
+                    });
+                }
                 
                 // Update UI
                 this.updateStats();
@@ -220,11 +379,20 @@ class WalletFinder {
                 
             } catch (error) {
                 console.error('Error processing address:', error);
-                if (error.message === 'API limit reached') {
+                if (error.message === 'API limit reached' || error.message === 'API request timeout') {
                     throw error;
                 }
             }
         }
+
+        // Clear batch and prepare for next one
+        console.log(`Batch #${this.currentBatch.number} completed`);
+        this.resultsBody.innerHTML = ''; // Clear results table
+        this.currentBatch.number++; // Increment batch number
+        this.currentBatch.keys = []; // Clear keys
+        this.currentBatch.processed = 0; // Reset processed count
+        this.currentBatch.progress = 0; // Reset progress
+        this.saveState(); // Save state after batch completion
     }
 
     async updateApiLimit() {
