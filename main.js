@@ -55,35 +55,51 @@ class WalletFinder {
         console.log('Initializing UI...');
         try {
             // Get UI elements
-            this.startButton = document.getElementById('startButton');
-            this.pauseButton = document.getElementById('pauseButton');
-            this.reloadButton = document.getElementById('reloadButton');
-            this.checkedCountElement = document.getElementById('checkedCount');
-            this.foundAddressCountElement = document.getElementById('foundAddressCount');
-            this.foundBtcAmountElement = document.getElementById('foundBtcAmount');
-            this.speedElement = document.getElementById('speed');
-            this.apiLimitElement = document.getElementById('apiLimit');
-            this.progressBar = document.getElementById('progressBar');
-            this.resultsBody = document.getElementById('resultsBody');
-            this.historyBody = document.getElementById('historyBody');
+            const requiredElements = {
+                startButton: 'startButton',
+                pauseButton: 'pauseButton',
+                reloadButton: 'reloadButton',
+                checkedCountElement: 'checkedCount',
+                foundCountElement: 'foundCount',
+                totalBtcFoundElement: 'totalBtcFound',
+                speedElement: 'speed',
+                apiLimitElement: 'apiLimit',
+                progressBar: 'progressBar',
+                resultsBody: 'resultsBody',
+                historyBody: 'historyBody',
+                batchNumberElement: 'batchNumber',
+                batchProgressElement: 'batchProgress',
+                newCountElement: 'newCount',
+                usedCountElement: 'usedCount',
+                valuableCountElement: 'valuableCount'
+            };
 
-            // Batch info elements
-            this.batchNumberElement = document.getElementById('batchNumber');
-            this.batchProgressElement = document.getElementById('batchProgress');
+            const missingElements = [];
+            
+            // Get all elements and track missing ones
+            for (const [key, id] of Object.entries(requiredElements)) {
+                this[key] = document.getElementById(id);
+                if (!this[key]) {
+                    missingElements.push(id);
+                }
+            }
 
-            // Wallet type stats elements
-            this.newCountElement = document.getElementById('newCount');
-            this.usedCountElement = document.getElementById('usedCount');
-            this.valuableCountElement = document.getElementById('valuableCount');
-
-            if (!this.startButton || !this.pauseButton || !this.reloadButton) {
-                throw new Error('Required UI elements not found');
+            // If any elements are missing, log them but continue
+            if (missingElements.length > 0) {
+                console.warn('Missing UI elements:', missingElements.join(', '));
             }
 
             // Add event listeners
-            this.startButton.addEventListener('click', () => this.start());
-            this.pauseButton.addEventListener('click', () => this.pause());
-            this.reloadButton.addEventListener('click', () => this.reload());
+            if (this.startButton) {
+                this.startButton.addEventListener('click', () => this.start());
+            }
+            if (this.pauseButton) {
+                this.pauseButton.disabled = true;
+                this.pauseButton.addEventListener('click', () => this.pause());
+            }
+            if (this.reloadButton) {
+                this.reloadButton.addEventListener('click', () => this.reload());
+            }
 
             // Add auto-save on page unload
             window.addEventListener('beforeunload', () => this.saveState());
@@ -98,49 +114,65 @@ class WalletFinder {
     }
 
     updateStats() {
-        // Check if all UI elements are available
-        if (!this.checkedCountElement || !this.foundAddressCountElement || 
-            !this.foundBtcAmountElement || !this.speedElement || 
-            !this.batchNumberElement || !this.batchProgressElement ||
-            !this.newCountElement || !this.usedCountElement ||
-            !this.valuableCountElement || !this.progressBar ||
-            !this.apiLimitElement) {
-            console.error('UI elements not ready for stats update');
-            return;
-        }
-        
-        // Update general stats
-        this.checkedCountElement.textContent = this.checkedCount;
-        this.foundAddressCountElement.textContent = this.foundCount;
-        this.foundBtcAmountElement.textContent = this.totalBtcFound.toFixed(8) + ' BTC';
-        
-        // Calculate and update speed
-        if (this.startTime) {
-            const currentTime = this.isRunning ? Date.now() : (this.pauseTime || Date.now());
-            const effectiveTime = currentTime - this.startTime - this.totalPauseTime;
-            const elapsedSeconds = effectiveTime / 1000;
-            const speed = elapsedSeconds > 0 ? (this.checkedCount / elapsedSeconds).toFixed(2) : '0.00';
-            this.speedElement.textContent = speed;
-        } else {
-            this.speedElement.textContent = '0.00';
-        }
-        
-        // Update batch information
-        this.batchNumberElement.textContent = this.currentBatch.number;
-        this.batchProgressElement.textContent = `${Math.round(this.currentBatch.progress)}%`;
-        
-        // Update wallet type counts
-        this.newCountElement.textContent = this.stats.new;
-        this.usedCountElement.textContent = this.stats.used;
-        this.valuableCountElement.textContent = this.stats.valuable;
-        
-        // Update progress bar
-        this.progressBar.style.width = `${this.currentBatch.progress}%`;
-        
-        // Update API limit if available
-        const requestsLeft = this.api.getRequestsLeft();
-        if (requestsLeft !== Infinity) {
-            this.apiLimitElement.textContent = requestsLeft;
+        // Update only available elements
+        try {
+            // Update general stats
+            if (this.checkedCountElement) {
+                this.checkedCountElement.textContent = this.checkedCount;
+            }
+            if (this.foundCountElement) {
+                this.foundCountElement.textContent = this.foundCount;
+            }
+            if (this.totalBtcFoundElement) {
+                this.totalBtcFoundElement.textContent = this.totalBtcFound.toFixed(8);
+            }
+            
+            // Calculate and update speed
+            if (this.speedElement) {
+                if (this.startTime) {
+                    const currentTime = this.isRunning ? Date.now() : (this.pauseTime || Date.now());
+                    const effectiveTime = currentTime - this.startTime - this.totalPauseTime;
+                    const elapsedSeconds = effectiveTime / 1000;
+                    const speed = elapsedSeconds > 0 ? (this.checkedCount / elapsedSeconds).toFixed(2) : '0.00';
+                    this.speedElement.textContent = speed;
+                } else {
+                    this.speedElement.textContent = '0.00';
+                }
+            }
+            
+            // Update batch information
+            if (this.batchNumberElement) {
+                this.batchNumberElement.textContent = this.currentBatch.number;
+            }
+            if (this.batchProgressElement) {
+                this.batchProgressElement.textContent = `${Math.round(this.currentBatch.progress)}%`;
+            }
+            
+            // Update wallet type counts
+            if (this.newCountElement) {
+                this.newCountElement.textContent = this.stats.new;
+            }
+            if (this.usedCountElement) {
+                this.usedCountElement.textContent = this.stats.used;
+            }
+            if (this.valuableCountElement) {
+                this.valuableCountElement.textContent = this.stats.valuable;
+            }
+            
+            // Update progress bar
+            if (this.progressBar) {
+                this.progressBar.style.width = `${this.currentBatch.progress}%`;
+            }
+            
+            // Update API limit if available
+            if (this.apiLimitElement) {
+                const requestsLeft = this.api.getRequestsLeft();
+                if (requestsLeft !== Infinity) {
+                    this.apiLimitElement.textContent = requestsLeft;
+                }
+            }
+        } catch (error) {
+            console.error('Error updating stats:', error);
         }
     }
 
@@ -191,7 +223,7 @@ class WalletFinder {
                             <td>${item.address}</td>
                             <td>${item.privateKey}</td>
                             <td class="balance-column">${parseFloat(item.balance).toFixed(8)} BTC</td>
-                            <td class="status-${item.status.toLowerCase()}">${item.status}</td>
+                            <td class="status-${item.status.type}">${item.status}</td>
                             <td>${item.timestamp}</td>
                         `;
                         this.historyBody.appendChild(row);
@@ -362,11 +394,13 @@ class WalletFinder {
         // Создаем ячейки для обоих типов адресов
         row.innerHTML = `
             <td>${displayIndex}</td>
-            <td>
-                C: ${walletData.compressed.address}<br>
-                U: ${walletData.uncompressed.address}
+            <td class="address-cell">
+                <div class="address-type">Compressed:</div>
+                <div class="address-value">${walletData.compressed.address}</div>
+                <div class="address-type">Uncompressed:</div>
+                <div class="address-value">${walletData.uncompressed.address}</div>
             </td>
-            <td>${walletData.privateKey}</td>
+            <td class="key-cell">${walletData.privateKey}</td>
             <td class="balance-column">${checkResult.balance.toFixed(8)} BTC</td>
             <td class="status-${checkResult.status.type}">${checkResult.status.text}</td>
         `;
@@ -383,9 +417,12 @@ class WalletFinder {
         // Проверяем, не существует ли уже такой адрес в истории
         const existingRows = Array.from(this.historyBody.children);
         const isDuplicate = existingRows.some(row => {
-            const addresses = row.cells[1].textContent.split('\n');
-            return addresses.includes(data.compressed.address) || 
-                   addresses.includes(data.uncompressed.address);
+            const addressCell = row.querySelector('.address-cell');
+            if (!addressCell) return false;
+            const addressValues = Array.from(addressCell.querySelectorAll('.address-value'))
+                .map(div => div.textContent);
+            return addressValues.includes(data.compressed.address) || 
+                   addressValues.includes(data.uncompressed.address);
         });
 
         if (isDuplicate) {
@@ -399,11 +436,13 @@ class WalletFinder {
         
         row.innerHTML = `
             <td>${data.batchNumber}</td>
-            <td>
-                C: ${data.compressed.address}<br>
-                U: ${data.uncompressed.address}
+            <td class="address-cell">
+                <div class="address-type">Compressed:</div>
+                <div class="address-value">${data.compressed.address}</div>
+                <div class="address-type">Uncompressed:</div>
+                <div class="address-value">${data.uncompressed.address}</div>
             </td>
-            <td>${data.privateKey}</td>
+            <td class="key-cell">${data.privateKey}</td>
             <td class="balance-column">${data.balance.toFixed(8)} BTC</td>
             <td class="status-${data.status.type}">${data.status.text}</td>
             <td>${new Date(data.timestamp).toLocaleString()}</td>
