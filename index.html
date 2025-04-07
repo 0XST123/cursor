@@ -33,49 +33,39 @@
     <div class="container">
         <h1>Bitcoin Brain Wallet Finder</h1>
         
-        <!-- Controls Panel -->
-        <div class="controls-panel">
-            <button id="startButton">Старт</button>
-            <button id="pauseButton" disabled>Пауза</button>
-            <button id="reloadButton">Релоад</button>
+        <!-- Controls -->
+        <div class="controls">
+            <button id="startButton">Start</button>
+            <button id="pauseButton" disabled>Pause</button>
+            <button id="reloadButton">Reload</button>
+            <button id="testButton" onclick="window.walletFinder.testWalletGeneration()">Test Generation</button>
         </div>
 
-        <!-- Stats Panel -->
-        <div class="stats-panel">
-            <div>Проверено адресов: <span id="checkedCount">0</span></div>
-            <div>Найдено адресов: <span id="foundAddressCount">0</span></div>
-            <div>Найдено BTC: <span id="foundBtcAmount">0.00000000 BTC</span></div>
-            <div>Скорость: <span id="speed">0</span> адр/сек</div>
-            <div>API лимит: <span id="apiLimit">∞</span></div>
+        <!-- Statistics -->
+        <div class="stats">
+            <div>Checked: <span id="checkedCount">0</span></div>
+            <div>Found: <span id="foundCount">0</span></div>
+            <div>Total BTC: <span id="totalBtcFound">0.00000000</span></div>
+            <div>Speed: <span id="speed">0</span> addr/s</div>
+            <div>API Requests Left: <span id="apiLimit">Unknown</span></div>
         </div>
 
-        <!-- Batch Info Panel -->
-        <div class="batch-info-panel">
-            <div>Номер партии: <span id="batchNumber">1</span></div>
-            <div>Прогресс: <span id="batchProgress">0%</span></div>
-            <div class="progress-bar-container">
-                <div id="progressBar" class="progress-bar"></div>
-            </div>
-        </div>
-
-        <!-- Wallet Types Panel -->
-        <div class="wallet-types-panel">
-            <div>Новые: <span id="newCount">0</span></div>
-            <div>Использованные: <span id="usedCount">0</span></div>
-            <div>С балансом: <span id="valuableCount">0</span></div>
+        <!-- Progress -->
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
         </div>
 
         <!-- Results Table -->
         <div class="table-container">
-            <h3>Текущая партия</h3>
+            <h2>Current Batch Results</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>№</th>
-                        <th>Адрес</th>
-                        <th>Приватный ключ</th>
-                        <th>Баланс</th>
-                        <th>Статус</th>
+                        <th>#</th>
+                        <th>Address</th>
+                        <th>Private Key</th>
+                        <th>Balance</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody id="resultsBody"></tbody>
@@ -84,16 +74,16 @@
 
         <!-- History Table -->
         <div class="table-container">
-            <h3>История найденных адресов</h3>
+            <h2>History</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>Партия</th>
-                        <th>Адрес</th>
-                        <th>Приватный ключ</th>
-                        <th>Баланс</th>
-                        <th>Статус</th>
-                        <th>Время</th>
+                        <th>Batch</th>
+                        <th>Address</th>
+                        <th>Private Key</th>
+                        <th>Balance</th>
+                        <th>Status</th>
+                        <th>Time</th>
                     </tr>
                 </thead>
                 <tbody id="historyBody"></tbody>
