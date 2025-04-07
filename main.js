@@ -58,21 +58,13 @@ class WalletFinder {
             // Get UI elements
             const requiredElements = {
                 startButton: 'startButton',
-                pauseButton: 'pauseButton',
-                reloadButton: 'reloadButton',
-                checkedWalletsElement: 'checkedCount',
-                foundCountElement: 'foundCount',
-                totalBtcFoundElement: 'totalBtcFound',
-                speedElement: 'speed',
-                apiLimitElement: 'apiLimit',
-                progressBar: 'progressBar',
-                resultsBody: 'resultsBody',
-                historyBody: 'historyBody',
-                batchNumberElement: 'batchNumber',
-                batchProgressElement: 'batchProgress',
+                stopButton: 'stopButton',
                 newCountElement: 'newCount',
                 usedCountElement: 'usedCount',
-                valuableCountElement: 'valuableCount'
+                valuableCountElement: 'valuableCount',
+                totalBtcFoundElement: 'totalBtcFound',
+                resultsTable: 'resultsTable',
+                historyList: 'historyList'
             };
 
             const missingElements = [];
@@ -94,12 +86,14 @@ class WalletFinder {
             if (this.startButton) {
                 this.startButton.addEventListener('click', () => this.start());
             }
-            if (this.pauseButton) {
-                this.pauseButton.disabled = true;
-                this.pauseButton.addEventListener('click', () => this.pause());
+            if (this.stopButton) {
+                this.stopButton.disabled = true;
+                this.stopButton.addEventListener('click', () => this.pause());
             }
-            if (this.reloadButton) {
-                this.reloadButton.addEventListener('click', () => this.reload());
+
+            // Get table body reference
+            if (this.resultsTable) {
+                this.resultsBody = this.resultsTable.querySelector('tbody');
             }
 
             // Add auto-save on page unload
@@ -115,42 +109,7 @@ class WalletFinder {
     }
 
     updateStats() {
-        // Update only available elements
         try {
-            // Update general stats
-            if (this.checkedWalletsElement) {
-                this.checkedWalletsElement.textContent = this.checkedWallets;
-            }
-            if (this.foundCountElement) {
-                this.foundCountElement.textContent = this.foundCount;
-            }
-            if (this.totalBtcFoundElement) {
-                this.totalBtcFoundElement.textContent = this.totalBtcFound.toFixed(8);
-            }
-            
-            // Calculate and update speed
-            if (this.speedElement) {
-                if (this.startTime) {
-                    const currentTime = this.isRunning ? Date.now() : (this.pauseTime || Date.now());
-                    const effectiveTime = currentTime - this.startTime - this.totalPauseTime;
-                    const elapsedSeconds = effectiveTime / 1000;
-                    const speed = elapsedSeconds > 0 ? (this.checkedWallets / elapsedSeconds).toFixed(2) : '0.00';
-                    this.speedElement.textContent = `${speed}`;
-                } else {
-                    this.speedElement.textContent = '0.00';
-                }
-            }
-            
-            // Update batch number
-            if (this.batchNumberElement) {
-                this.batchNumberElement.textContent = `${this.currentBatch.number}`;
-            }
-            
-            // Update progress bar
-            if (this.progressBar) {
-                this.progressBar.style.width = `${this.currentBatch.progress}%`;
-            }
-            
             // Update status counts
             if (this.newCountElement) {
                 this.newCountElement.textContent = this.stats.new;
@@ -160,6 +119,9 @@ class WalletFinder {
             }
             if (this.valuableCountElement) {
                 this.valuableCountElement.textContent = this.stats.valuable;
+            }
+            if (this.totalBtcFoundElement) {
+                this.totalBtcFoundElement.textContent = this.totalBtcFound.toFixed(8);
             }
         } catch (error) {
             console.error('Error updating stats:', error);
@@ -177,13 +139,14 @@ class WalletFinder {
             startTime: this.startTime,
             pauseTime: this.pauseTime,
             totalPauseTime: this.totalPauseTime,
-            history: Array.from(this.historyBody.children).map(row => ({
-                batchNumber: parseInt(row.cells[0].textContent),
-                address: row.cells[1].textContent,
-                privateKey: row.cells[2].textContent,
-                balance: parseFloat(row.cells[3].textContent),
-                status: row.cells[4].textContent,
-                timestamp: row.cells[5].textContent
+            history: Array.from(document.querySelectorAll('#historyList .history-item')).map(item => ({
+                batchNumber: item.dataset.batch,
+                compressedAddress: item.dataset.compressedAddress,
+                uncompressedAddress: item.dataset.uncompressedAddress,
+                privateKey: item.dataset.privateKey,
+                balance: parseFloat(item.dataset.balance),
+                status: item.dataset.status,
+                timestamp: item.dataset.timestamp
             }))
         };
         localStorage.setItem('walletFinderState', JSON.stringify(state));
@@ -205,20 +168,30 @@ class WalletFinder {
                 this.totalPauseTime = state.totalPauseTime || 0;
 
                 // Restore history
-                if (state.history) {
-                    this.historyBody.innerHTML = '';
+                if (state.history && this.historyList) {
+                    this.historyList.innerHTML = '';
                     // Разворачиваем массив, чтобы сохранить порядок новые-сверху
                     [...state.history].reverse().forEach(item => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${item.batchNumber}</td>
-                            <td>${item.address}</td>
-                            <td>${item.privateKey}</td>
-                            <td class="balance-column">${parseFloat(item.balance).toFixed(8)} BTC</td>
-                            <td class="status-${item.status.type}">${item.status}</td>
-                            <td>${item.timestamp}</td>
+                        const status = JSON.parse(item.status);
+                        const historyItem = document.createElement('div');
+                        historyItem.className = `history-item status-${status.type}`;
+                        historyItem.dataset.batch = item.batchNumber;
+                        historyItem.dataset.compressedAddress = item.compressedAddress;
+                        historyItem.dataset.uncompressedAddress = item.uncompressedAddress;
+                        historyItem.dataset.privateKey = item.privateKey;
+                        historyItem.dataset.balance = item.balance;
+                        historyItem.dataset.status = item.status;
+                        historyItem.dataset.timestamp = item.timestamp;
+                        
+                        historyItem.innerHTML = `
+                            <div>Batch #${item.batchNumber} - ${new Date(item.timestamp).toLocaleString()}</div>
+                            <div>Compressed: ${item.compressedAddress}</div>
+                            <div>Uncompressed: ${item.uncompressedAddress}</div>
+                            <div>Private Key: ${item.privateKey}</div>
+                            <div>Balance: ${parseFloat(item.balance).toFixed(8)} BTC</div>
+                            <div>Status: ${status.text}</div>
                         `;
-                        this.historyBody.appendChild(row);
+                        this.historyList.appendChild(historyItem);
                     });
                 }
 
@@ -250,13 +223,26 @@ class WalletFinder {
         this.startTime = null;
         this.pauseTime = null;
         this.totalPauseTime = 0;
-        this.resultsBody.innerHTML = '';
+
+        // Безопасно очищаем таблицу
+        if (this.resultsBody) {
+            this.resultsBody.innerHTML = '';
+        }
+        if (this.historyList) {
+            this.historyList.innerHTML = '';
+        }
+
         this.updateStats();
     }
 
     reload() {
-        // Clear main table
-        this.resultsBody.innerHTML = '';
+        // Clear UI
+        if (this.resultsBody) {
+            this.resultsBody.innerHTML = '';
+        }
+        if (this.historyList) {
+            this.historyList.innerHTML = '';
+        }
         
         // Reset statistics
         this.stats = {
@@ -283,9 +269,13 @@ class WalletFinder {
         // Update UI
         this.updateStats();
         
-        // Enable start button
-        this.startButton.disabled = false;
-        this.pauseButton.disabled = true;
+        // Enable/disable buttons
+        if (this.startButton) {
+            this.startButton.disabled = false;
+        }
+        if (this.stopButton) {
+            this.stopButton.disabled = true;
+        }
         
         console.log('Application reloaded');
     }
@@ -295,8 +285,14 @@ class WalletFinder {
         
         this.isRunning = false;
         this.pauseTime = Date.now();
-        this.startButton.disabled = false;
-        this.pauseButton.disabled = true;
+
+        // Обновляем состояние кнопок
+        if (this.startButton) {
+            this.startButton.disabled = false;
+        }
+        if (this.stopButton) {
+            this.stopButton.disabled = true;
+        }
         
         // Сохраняем текущее состояние
         this.saveState();
@@ -326,8 +322,13 @@ class WalletFinder {
                 this.totalPauseTime = 0;
             }
             
-            this.startButton.disabled = true;
-            this.pauseButton.disabled = false;
+            // Обновляем состояние кнопок
+            if (this.startButton) {
+                this.startButton.disabled = true;
+            }
+            if (this.stopButton) {
+                this.stopButton.disabled = false;
+            }
 
             // Основной цикл обработки
             while (this.isRunning) {
@@ -370,76 +371,69 @@ class WalletFinder {
     }
 
     addResultToTable(walletData, checkResult, index) {
-        const row = document.createElement('tr');
-        if (checkResult.balance > 0) {
-            row.classList.add('has-balance');
+        if (!this.resultsBody) return;
+
+        // Очищаем таблицу если это первый элемент нового батча
+        if (index === 0) {
+            this.resultsBody.innerHTML = '';
         }
 
-        // Добавляем индекс для нумерации в текущем батче
-        const displayIndex = this.currentBatch.number * this.batchSize - (this.batchSize - index - 1);
-        
-        // Создаем ячейки для обоих типов адресов
+        const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${displayIndex}</td>
-            <td class="address-cell">
-                <div class="address-type">Compressed:</div>
-                <div class="address-value">${walletData.compressed.address}</div>
-                <div class="address-type">Uncompressed:</div>
-                <div class="address-value">${walletData.uncompressed.address}</div>
-            </td>
-            <td class="key-cell">${walletData.privateKey}</td>
-            <td class="balance-column">${checkResult.balance.toFixed(8)} BTC</td>
+            <td>${index + 1}</td>
+            <td title="${walletData.compressed.address}">${walletData.compressed.address}</td>
+            <td title="${walletData.uncompressed.address}">${walletData.uncompressed.address}</td>
+            <td title="${walletData.privateKey}">${walletData.privateKey}</td>
             <td class="status-${checkResult.status.type}">${checkResult.status.text}</td>
         `;
 
-        // Добавляем новую строку в начало таблицы
-        if (this.resultsBody.firstChild) {
-            this.resultsBody.insertBefore(row, this.resultsBody.firstChild);
-        } else {
-            this.resultsBody.appendChild(row);
+        // Добавляем строку в таблицу
+        this.resultsBody.appendChild(row);
+
+        // Если таблица стала слишком длинной, удаляем старые записи
+        while (this.resultsBody.children.length > 20) {
+            this.resultsBody.removeChild(this.resultsBody.firstChild);
         }
     }
 
     addToHistory(data) {
+        if (!this.historyList) return;
+
         // Проверяем, не существует ли уже такой адрес в истории
-        const existingRows = Array.from(this.historyBody.children);
-        const isDuplicate = existingRows.some(row => {
-            const addressCell = row.querySelector('.address-cell');
-            if (!addressCell) return false;
-            const addressValues = Array.from(addressCell.querySelectorAll('.address-value'))
-                .map(div => div.textContent);
-            return addressValues.includes(data.compressed.address) || 
-                   addressValues.includes(data.uncompressed.address);
+        const existingItems = Array.from(this.historyList.children);
+        const isDuplicate = existingItems.some(item => {
+            return item.dataset.compressedAddress === data.compressed.address || 
+                   item.dataset.uncompressedAddress === data.uncompressed.address;
         });
 
         if (isDuplicate) {
             return;
         }
 
-        const row = document.createElement('tr');
-        if (data.balance > 0) {
-            row.classList.add('has-balance');
-        }
+        const historyItem = document.createElement('div');
+        historyItem.className = `history-item status-${data.status.type}`;
+        historyItem.dataset.batch = data.batchNumber;
+        historyItem.dataset.compressedAddress = data.compressed.address;
+        historyItem.dataset.uncompressedAddress = data.uncompressed.address;
+        historyItem.dataset.privateKey = data.privateKey;
+        historyItem.dataset.balance = data.balance;
+        historyItem.dataset.status = JSON.stringify(data.status);
+        historyItem.dataset.timestamp = data.timestamp;
         
-        row.innerHTML = `
-            <td>${data.batchNumber}</td>
-            <td class="address-cell">
-                <div class="address-type">Compressed:</div>
-                <div class="address-value">${data.compressed.address}</div>
-                <div class="address-type">Uncompressed:</div>
-                <div class="address-value">${data.uncompressed.address}</div>
-            </td>
-            <td class="key-cell">${data.privateKey}</td>
-            <td class="balance-column">${data.balance.toFixed(8)} BTC</td>
-            <td class="status-${data.status.type}">${data.status.text}</td>
-            <td>${new Date(data.timestamp).toLocaleString()}</td>
+        historyItem.innerHTML = `
+            <div>Batch #${data.batchNumber} - ${new Date(data.timestamp).toLocaleString()}</div>
+            <div>Compressed: ${data.compressed.address}</div>
+            <div>Uncompressed: ${data.uncompressed.address}</div>
+            <div>Private Key: ${data.privateKey}</div>
+            <div>Balance: ${data.balance.toFixed(8)} BTC</div>
+            <div>Status: ${data.status.text}</div>
         `;
         
-        // Добавляем новую строку в начало таблицы
-        if (this.historyBody.firstChild) {
-            this.historyBody.insertBefore(row, this.historyBody.firstChild);
+        // Добавляем новый элемент в начало списка
+        if (this.historyList.firstChild) {
+            this.historyList.insertBefore(historyItem, this.historyList.firstChild);
         } else {
-            this.historyBody.appendChild(row);
+            this.historyList.appendChild(historyItem);
         }
     }
 
