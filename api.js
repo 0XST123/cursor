@@ -147,10 +147,11 @@ class BlockchainInfoAPI {
 // Фабрика API без использования модулей
 class BitcoinAPIFactory {
     static createAPI() {
-        return new BlockchairAPI();
+        return new BlockchainInfoAPI();
     }
 }
 
 // Make classes available globally
 window.BlockchairAPI = BlockchairAPI;
+window.BlockchainInfoAPI = BlockchainInfoAPI;
 window.BitcoinAPIFactory = BitcoinAPIFactory; 

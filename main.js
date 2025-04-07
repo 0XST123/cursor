@@ -115,15 +115,26 @@ class WalletFinder {
     }
 
     getWalletStatus(balance) {
-        if (balance >= 0.0001) {
+        // Если баланс не определен или произошла ошибка
+        if (typeof balance === 'undefined' || balance === null) {
             return {
-                type: 'valuable',
-                text: `Баланс: ${balance.toFixed(8)} BTC`
+                type: 'invalid',
+                text: 'Не валидный'
             };
         }
+
+        // Если баланс равен 0
+        if (balance === 0) {
+            return {
+                type: 'new',
+                text: 'Новый'
+            };
+        }
+
+        // Если баланс больше 0
         return {
-            type: 'new',
-            text: 'Новый'
+            type: 'used',
+            text: 'Использовался'
         };
     }
 
@@ -174,21 +185,19 @@ class WalletFinder {
         for (const phrase of phrases) {
             if (!this.isRunning) break;
 
+            const walletData = this.wallet.generateWallet(phrase);
+            
             try {
-                // Generate wallet data
-                const walletData = this.wallet.generateWallet(phrase);
-                
-                // Check balance
                 const balance = await this.api.checkAddress(walletData.address);
                 this.checkedCount++;
                 
-                // Get status based on balance
+                // Get wallet status and update stats
                 const status = this.getWalletStatus(balance);
+                this.stats[status.type]++;
                 
                 // Update stats
                 this.foundCount++;
                 this.totalBtcFound += balance;
-                this.stats[status.type]++;
                 
                 // Add to table
                 this.addResultToTable(walletData, {
