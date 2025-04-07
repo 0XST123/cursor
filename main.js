@@ -30,9 +30,6 @@ class WalletFinder {
         // Initialize UI
         this.initializeUI();
         
-        // Try to restore previous state
-        this.restoreState();
-        
         console.log('WalletFinder initialized');
     }
 
@@ -86,6 +83,9 @@ class WalletFinder {
 
             // Add auto-save on page unload
             window.addEventListener('beforeunload', () => this.saveState());
+            
+            // Try to restore previous state after UI is initialized
+            this.restoreState();
             
         } catch (error) {
             console.error('Error initializing UI:', error);
