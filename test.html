@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Batch Processing Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        #result {
+            white-space: pre;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h2>Batch Processing Test</h2>
+    <div id="result">Loading...</div>
+
+    <script src="api.js"></script>
+    <script src="test.js"></script>
+    
+    <script>
+        // Перехватываем console.log для вывода в div
+        const resultDiv = document.getElementById('result');
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        console.log = function() {
+            const args = Array.from(arguments);
+            resultDiv.innerHTML += args.join(' ') + '\n';
+            originalLog.apply(console, arguments);
+        };
+        
+        console.error = function() {
+            const args = Array.from(arguments);
+            resultDiv.innerHTML += '❌ ERROR: ' + args.join(' ') + '\n';
+            originalError.apply(console, arguments);
+        };
+    </script>
+</body>
+</html> 
