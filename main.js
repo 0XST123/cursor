@@ -453,11 +453,37 @@ class WalletFinder {
         try {
             // Generate new batch if needed
             if (this.currentBatch.keys.length === 0) {
-                const phrases = this.phraseGenerator.generatePhrases(this.batchSize);
-                this.currentBatch.keys = phrases.map(phrase => this.wallet.generateWallet(phrase));
-                this.currentBatch.processed = 0;
-                this.currentBatch.progress = 0;
-                console.log(`Generated new batch #${this.currentBatch.number} with ${this.currentBatch.keys.length} keys`);
+                try {
+                    const phrases = this.phraseGenerator.generatePhrases(this.batchSize);
+                    this.currentBatch.keys = [];
+                    
+                    // Generate wallets with error handling for each phrase
+                    for (const phrase of phrases) {
+                        try {
+                            const wallet = this.wallet.generateWallet(phrase);
+                            if (wallet && wallet.compressed && wallet.compressed.address &&
+                                wallet.uncompressed && wallet.uncompressed.address) {
+                                this.currentBatch.keys.push(wallet);
+                            } else {
+                                console.error('Invalid wallet generated for phrase:', phrase);
+                            }
+                        } catch (error) {
+                            console.error('Error generating wallet for phrase:', phrase, error);
+                        }
+                    }
+                    
+                    this.currentBatch.processed = 0;
+                    this.currentBatch.progress = 0;
+                    console.log(`Generated new batch #${this.currentBatch.number} with ${this.currentBatch.keys.length} valid keys`);
+                    
+                    // If no valid wallets were generated, throw error
+                    if (this.currentBatch.keys.length === 0) {
+                        throw new Error('Failed to generate any valid wallets');
+                    }
+                } catch (error) {
+                    console.error('Error generating batch:', error);
+                    throw error;
+                }
             }
 
             // Process current batch
@@ -469,6 +495,13 @@ class WalletFinder {
 
                 try {
                     const walletData = this.currentBatch.keys[i];
+                    
+                    // Verify wallet data before processing
+                    if (!walletData || !walletData.compressed || !walletData.uncompressed ||
+                        !walletData.compressed.address || !walletData.uncompressed.address) {
+                        console.error('Invalid wallet data at position', i);
+                        continue;
+                    }
                     
                     // Проверяем оба адреса параллельно
                     const [compressedInfo, uncompressedInfo] = await Promise.all([
