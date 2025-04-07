@@ -359,7 +359,7 @@ class WalletFinder {
             row.classList.add('has-balance');
         }
         
-        // При добавлении в начало таблицы корректируем номер
+        // Корректируем номер для отображения в обратном порядке
         const displayIndex = this.currentBatch.processed - index;
         
         row.innerHTML = `
