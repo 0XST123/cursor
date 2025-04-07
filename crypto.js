@@ -125,8 +125,11 @@ class BitcoinWallet {
             // Get public key in uncompressed format
             const publicKey = keyPair.getPublic(false, 'hex');
             
+            // Ensure the public key starts with '04'
+            const formattedPublicKey = publicKey.startsWith('04') ? publicKey : '04' + publicKey;
+            
             console.log('Uncompressed public key generated successfully');
-            return publicKey;
+            return formattedPublicKey;
         } catch (error) {
             console.error('Error generating uncompressed public key:', error);
             throw new Error(`Ошибка генерации несжатого публичного ключа: ${error.message}`);
@@ -168,6 +171,12 @@ class BitcoinWallet {
             const bytes = this.hexToBytes(binaryAddress);
             const address = this.base58Encode(bytes);
             
+            // Validate generated address
+            const validation = this.validateAddress(address);
+            if (!validation.isValid) {
+                throw new Error(`Invalid address generated: ${validation.reason}`);
+            }
+            
             console.log('Bitcoin address generated successfully from compressed key');
             return address;
         } catch (error) {
@@ -182,6 +191,11 @@ class BitcoinWallet {
             console.log('Generating Bitcoin address from uncompressed public key...');
             if (!publicKeyHex) {
                 throw new Error('Пустой публичный ключ');
+            }
+            
+            // Ensure the public key is in uncompressed format
+            if (!publicKeyHex.startsWith('04')) {
+                throw new Error('Invalid uncompressed public key format');
             }
             
             // Convert hex string to WordArray
@@ -210,6 +224,12 @@ class BitcoinWallet {
             // Step 7: Convert hex to bytes and then to base58
             const bytes = this.hexToBytes(binaryAddress);
             const address = this.base58Encode(bytes);
+            
+            // Validate generated address
+            const validation = this.validateAddress(address);
+            if (!validation.isValid) {
+                throw new Error(`Invalid address generated: ${validation.reason}`);
+            }
             
             console.log('Bitcoin address generated successfully from uncompressed key');
             return address;
