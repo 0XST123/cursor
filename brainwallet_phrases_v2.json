@@ -1,0 +1,39 @@
+{
+    "prefixes": [
+        "the", "my", "your", "our", "this", "that",
+        "big", "new", "old", "first", "best"
+    ],
+    "words": [
+        "bitcoin", "wallet", "money", "gold", "crypto", 
+        "coin", "cash", "bank", "rich", "wealth",
+        "profit", "trade", "mining", "block", "chain",
+        "satoshi", "invest", "market", "hold", "moon",
+        "btc", "bit", "coin", "digital", "cyber",
+        "crypto", "hash", "block", "chain", "peer"
+    ],
+    "years": [
+        "2008", "2009", "2010", "2011", "2012", "2013",
+        "08", "09", "10", "11", "12", "13",
+        "2k8", "2k9", "2k10", "2k11", "2k12", "2k13"
+    ],
+    "numbers": [
+        "123", "321", "777", "888", "999",
+        "12345", "11111", "00000", "54321", "99999"
+    ],
+    "leetMap": {
+        "a": "4",
+        "e": "3",
+        "i": "1",
+        "o": "0",
+        "s": "5",
+        "t": "7"
+    },
+    "patterns": [
+        "prefix_word_year",
+        "word_year",
+        "prefix_word_word_year",
+        "word_word_year",
+        "word_number",
+        "prefix_word_number"
+    ]
+} 
