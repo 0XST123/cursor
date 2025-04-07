@@ -21,7 +21,8 @@ class WalletFinder {
             valuable: 0
         };
         
-        this.checkedCount = 0;
+        this.checkedWallets = 0;
+        this.checkedAddresses = 0;
         this.foundCount = 0;
         this.totalBtcFound = 0;
         this.startTime = null;
@@ -59,7 +60,7 @@ class WalletFinder {
                 startButton: 'startButton',
                 pauseButton: 'pauseButton',
                 reloadButton: 'reloadButton',
-                checkedCountElement: 'checkedCount',
+                checkedWalletsElement: 'checkedCount',
                 foundCountElement: 'foundCount',
                 totalBtcFoundElement: 'totalBtcFound',
                 speedElement: 'speed',
@@ -117,8 +118,8 @@ class WalletFinder {
         // Update only available elements
         try {
             // Update general stats
-            if (this.checkedCountElement) {
-                this.checkedCountElement.textContent = this.checkedCount;
+            if (this.checkedWalletsElement) {
+                this.checkedWalletsElement.textContent = this.checkedWallets;
             }
             if (this.foundCountElement) {
                 this.foundCountElement.textContent = this.foundCount;
@@ -133,10 +134,10 @@ class WalletFinder {
                     const currentTime = this.isRunning ? Date.now() : (this.pauseTime || Date.now());
                     const effectiveTime = currentTime - this.startTime - this.totalPauseTime;
                     const elapsedSeconds = effectiveTime / 1000;
-                    const speed = elapsedSeconds > 0 ? (this.checkedCount / elapsedSeconds).toFixed(2) : '0.00';
-                    this.speedElement.textContent = speed;
+                    const speed = elapsedSeconds > 0 ? (this.checkedWallets / elapsedSeconds).toFixed(2) : '0.00';
+                    this.speedElement.textContent = `${speed} w/s`;
                 } else {
-                    this.speedElement.textContent = '0.00';
+                    this.speedElement.textContent = '0.00 w/s';
                 }
             }
             
@@ -180,7 +181,8 @@ class WalletFinder {
         const state = {
             currentBatch: this.currentBatch,
             stats: this.stats,
-            checkedCount: this.checkedCount,
+            checkedWallets: this.checkedWallets,
+            checkedAddresses: this.checkedAddresses,
             foundCount: this.foundCount,
             totalBtcFound: this.totalBtcFound,
             startTime: this.startTime,
@@ -205,7 +207,8 @@ class WalletFinder {
                 const state = JSON.parse(savedState);
                 this.currentBatch = state.currentBatch;
                 this.stats = state.stats;
-                this.checkedCount = state.checkedCount;
+                this.checkedWallets = state.checkedWallets || 0;
+                this.checkedAddresses = state.checkedAddresses || 0;
                 this.foundCount = state.foundCount;
                 this.totalBtcFound = state.totalBtcFound;
                 this.startTime = state.startTime;
@@ -251,7 +254,8 @@ class WalletFinder {
             used: 0,
             valuable: 0
         };
-        this.checkedCount = 0;
+        this.checkedWallets = 0;
+        this.checkedAddresses = 0;
         this.foundCount = 0;
         this.totalBtcFound = 0;
         this.startTime = null;
@@ -271,7 +275,8 @@ class WalletFinder {
             used: 0,
             valuable: 0
         };
-        this.checkedCount = 0;
+        this.checkedWallets = 0;
+        this.checkedAddresses = 0;
         this.foundCount = 0;
         this.totalBtcFound = 0;
         this.startTime = null;
@@ -487,99 +492,122 @@ class WalletFinder {
                 }
             }
 
-            // Process current batch
-            for (let i = this.currentBatch.processed; i < this.currentBatch.keys.length; i++) {
+            // Process current batch in chunks of 10 wallets (20 addresses)
+            const CHUNK_SIZE = 10;
+            for (let i = this.currentBatch.processed; i < this.currentBatch.keys.length; i += CHUNK_SIZE) {
                 if (!this.isRunning) {
                     console.log(`Processing stopped at position ${i}`);
                     return;
                 }
 
                 try {
-                    const walletData = this.currentBatch.keys[i];
+                    // Получаем чанк кошельков для обработки
+                    const walletChunk = this.currentBatch.keys.slice(i, i + CHUNK_SIZE);
                     
-                    // Verify wallet data before processing
-                    if (!walletData || !walletData.compressed || !walletData.uncompressed ||
-                        !walletData.compressed.address || !walletData.uncompressed.address) {
-                        console.error('Invalid wallet data at position', i);
-                        continue;
-                    }
-                    
-                    // Проверяем оба адреса параллельно
-                    const [compressedInfo, uncompressedInfo] = await Promise.all([
-                        this.api.checkAddress(walletData.compressed.address),
-                        this.api.checkAddress(walletData.uncompressed.address)
-                    ]);
-                    
-                    // Увеличиваем счетчик на 2, так как проверили 2 адреса
-                    this.checkedCount += 2;
-                    this.currentBatch.processed++;
-                    
-                    // Определяем статус и баланс
-                    const balance = Math.max(compressedInfo.balance, uncompressedInfo.balance);
-                    const hasTransactions = compressedInfo.hasTransactions || uncompressedInfo.hasTransactions;
-                    const totalReceived = compressedInfo.totalReceived + uncompressedInfo.totalReceived;
-                    const totalSent = compressedInfo.totalSent + uncompressedInfo.totalSent;
-                    
-                    // Логируем данные для отладки
-                    console.log('Wallet data:', {
-                        compressed: {
-                            address: walletData.compressed.address,
-                            balance: compressedInfo.balance,
-                            hasTransactions: compressedInfo.hasTransactions,
-                            totalReceived: compressedInfo.totalReceived,
-                            totalSent: compressedInfo.totalSent
-                        },
-                        uncompressed: {
-                            address: walletData.uncompressed.address,
-                            balance: uncompressedInfo.balance,
-                            hasTransactions: uncompressedInfo.hasTransactions,
-                            totalReceived: uncompressedInfo.totalReceived,
-                            totalSent: uncompressedInfo.totalSent
+                    // Собираем все адреса для проверки
+                    const addresses = walletChunk.reduce((acc, wallet) => {
+                        if (wallet && wallet.compressed && wallet.uncompressed &&
+                            wallet.compressed.address && wallet.uncompressed.address) {
+                            acc.push(wallet.compressed.address, wallet.uncompressed.address);
                         }
-                    });
-                    
-                    const status = this.getWalletStatus({ 
-                        balance, 
-                        hasTransactions,
-                        totalReceived,
-                        totalSent
-                    });
-                    
-                    this.stats[status.type]++;
-                    
-                    // Update batch progress
-                    this.currentBatch.progress = (this.currentBatch.processed / this.batchSize) * 100;
-                    
-                    // Add to main table with index
-                    this.addResultToTable(walletData, {
-                        balance: balance,
-                        status: status
-                    }, i);
+                        return acc;
+                    }, []);
 
-                    // Add to history if valuable or used
-                    if (status.type !== 'new') {
-                        this.foundCount++;
-                        this.totalBtcFound += balance;
+                    // Проверяем все адреса одним запросом
+                    const addressesInfo = await this.api.checkAddresses(addresses);
+                    
+                    // Обрабатываем результаты для каждого кошелька
+                    for (let j = 0; j < walletChunk.length; j++) {
+                        const walletData = walletChunk[j];
                         
-                        this.addToHistory({
-                            batchNumber: this.currentBatch.number,
-                            compressed: walletData.compressed,
-                            uncompressed: walletData.uncompressed,
-                            privateKey: walletData.privateKey,
-                            balance: balance,
-                            status: status,
-                            timestamp: new Date().toISOString()
+                        // Verify wallet data
+                        if (!walletData || !walletData.compressed || !walletData.uncompressed ||
+                            !walletData.compressed.address || !walletData.uncompressed.address) {
+                            console.error('Invalid wallet data at position', i + j);
+                            continue;
+                        }
+
+                        // Получаем информацию по обоим адресам
+                        const compressedInfo = addressesInfo[walletData.compressed.address] || {
+                            balance: 0,
+                            hasTransactions: false,
+                            totalReceived: 0,
+                            totalSent: 0
+                        };
+                        
+                        const uncompressedInfo = addressesInfo[walletData.uncompressed.address] || {
+                            balance: 0,
+                            hasTransactions: false,
+                            totalReceived: 0,
+                            totalSent: 0
+                        };
+                        
+                        // Увеличиваем счетчики
+                        this.checkedAddresses += 2;
+                        this.checkedWallets++;
+                        this.currentBatch.processed++;
+                        
+                        // Определяем статус и баланс
+                        const balance = Math.max(compressedInfo.balance, uncompressedInfo.balance);
+                        const hasTransactions = compressedInfo.hasTransactions || uncompressedInfo.hasTransactions;
+                        const totalReceived = compressedInfo.totalReceived + uncompressedInfo.totalReceived;
+                        const totalSent = compressedInfo.totalSent + uncompressedInfo.totalSent;
+                        
+                        // Логируем данные для отладки
+                        console.log('Wallet data:', {
+                            compressed: {
+                                address: walletData.compressed.address,
+                                ...compressedInfo
+                            },
+                            uncompressed: {
+                                address: walletData.uncompressed.address,
+                                ...uncompressedInfo
+                            }
                         });
+                        
+                        const status = this.getWalletStatus({ 
+                            balance, 
+                            hasTransactions,
+                            totalReceived,
+                            totalSent
+                        });
+                        
+                        this.stats[status.type]++;
+                        
+                        // Update batch progress
+                        this.currentBatch.progress = (this.currentBatch.processed / this.batchSize) * 100;
+                        
+                        // Add to main table with index
+                        this.addResultToTable(walletData, {
+                            balance: balance,
+                            status: status
+                        }, i + j);
+
+                        // Add to history if valuable or used
+                        if (status.type !== 'new') {
+                            this.foundCount++;
+                            this.totalBtcFound += balance;
+                            
+                            this.addToHistory({
+                                batchNumber: this.currentBatch.number,
+                                compressed: walletData.compressed,
+                                uncompressed: walletData.uncompressed,
+                                privateKey: walletData.privateKey,
+                                balance: balance,
+                                status: status,
+                                timestamp: new Date().toISOString()
+                            });
+                        }
                     }
                     
                     // Update UI
                     this.updateStats();
                     await this.updateApiLimit();
                     
-                    // Добавляем небольшую задержку между проверками
+                    // Добавляем небольшую задержку между чанками
                     await new Promise(resolve => setTimeout(resolve, 200));
                 } catch (error) {
-                    console.error(`Error processing wallet at position ${i}:`, error);
+                    console.error(`Error processing chunk at position ${i}:`, error);
                     // Если ошибка связана с API, останавливаем обработку
                     if (error.message === 'API limit reached' || error.message === 'API request timeout') {
                         this.pause();
@@ -588,7 +616,7 @@ class WalletFinder {
                             'API request timeout. Processing paused.');
                         throw error;
                     }
-                    // Иначе продолжаем со следующим кошельком
+                    // Иначе продолжаем со следующим чанком
                     continue;
                 }
             }
