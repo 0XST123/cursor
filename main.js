@@ -476,6 +476,21 @@ class WalletFinder {
                 return;
             }
 
+            // Очищаем таблицу перед началом нового батча
+            if (this.lastProcessedIndex === 0) {
+                this.resultsBody.innerHTML = '';
+            }
+
+            // Сначала добавляем все строки в таблицу со статусом "проверка"
+            currentBatchSlice.forEach((wallet, i) => {
+                this.addResultToTable(wallet, {
+                    status: {
+                        type: 'checking',
+                        text: 'Checking...'
+                    }
+                }, i);
+            });
+
             // Собираем все адреса для проверки
             const addressesToCheck = currentBatchSlice.reduce((acc, wallet) => {
                 acc.push(wallet.compressed.address);
@@ -510,8 +525,15 @@ class WalletFinder {
                           'New address'
                 };
                 
-                // Добавляем результат в таблицу
-                this.addResultToTable(wallet, { status: walletStatus }, i);
+                // Обновляем статус в существующей строке таблицы
+                const row = this.resultsBody.children[i];
+                if (row) {
+                    const statusCell = row.querySelector('td:last-child');
+                    if (statusCell) {
+                        statusCell.className = `status-${walletStatus.type}`;
+                        statusCell.textContent = walletStatus.text;
+                    }
+                }
                 
                 // Добавляем в историю если есть что-то интересное
                 if (walletStatus.type !== 'new') {
