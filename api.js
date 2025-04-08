@@ -3,6 +3,7 @@ class BlockchairAPI {
     constructor() {
         this.apiKey = 'A___XlvcUCcOjwiFTR2rRKASglriL77n';
         this.baseUrl = 'https://api.blockchair.com/bitcoin';
+        this.maxAddressesPerRequest = 100; // Максимальное количество адресов за запрос
         this.requestLimit = 30;
         this.requestCount = 0;
         this.lastRequestTime = 0;
@@ -23,10 +24,10 @@ class BlockchairAPI {
             return addresses.map(addr => this.cache.get(addr));
         }
 
-        // Группируем адреса по 40 штук
+        // Группируем адреса по 100 штук
         const batches = [];
-        for (let i = 0; i < uncachedAddresses.length; i += 40) {
-            batches.push(uncachedAddresses.slice(i, i + 40));
+        for (let i = 0; i < uncachedAddresses.length; i += this.maxAddressesPerRequest) {
+            batches.push(uncachedAddresses.slice(i, i + this.maxAddressesPerRequest));
         }
 
         const results = new Map();
@@ -35,7 +36,13 @@ class BlockchairAPI {
             try {
                 await this.waitForRateLimit();
                 
-                const response = await fetch(`${this.baseUrl}/dashboards/addresses/${batch.join(',')}?key=${this.apiKey}`);
+                // Формируем правильный URL для API
+                const queryParams = new URLSearchParams({
+                    addresses: batch.join(','),
+                    key: this.apiKey
+                });
+                
+                const response = await fetch(`${this.baseUrl}/addresses?${queryParams}`);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
