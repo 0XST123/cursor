@@ -346,14 +346,14 @@ class WalletFinder {
         if (result.balance > 0) {
             return {
                 type: 'valuable',
-                text: `Found ${result.balance} BTC`
+                text: `Balance: ${result.balance.toFixed(8)} BTC`
             };
         }
 
         if (result.hasTransactions) {
             return {
                 type: 'used',
-                text: 'Used (no balance)'
+                text: `Used (${result.transactionCount} tx)`
             };
         }
 
@@ -497,15 +497,24 @@ class WalletFinder {
                 const compressedStatus = this.getWalletStatus(compressedResult || { error: 'No data' });
                 const uncompressedStatus = this.getWalletStatus(uncompressedResult || { error: 'No data' });
                 
+                // Определяем общий статус кошелька
+                const walletStatus = {
+                    type: compressedStatus.type === 'valuable' || uncompressedStatus.type === 'valuable' ? 'valuable' :
+                          compressedStatus.type === 'used' || uncompressedStatus.type === 'used' ? 'used' :
+                          compressedStatus.type === 'error' && uncompressedStatus.type === 'error' ? 'error' : 'new',
+                    text: compressedStatus.type === 'valuable' ? compressedStatus.text :
+                          uncompressedStatus.type === 'valuable' ? uncompressedStatus.text :
+                          compressedStatus.type === 'used' ? compressedStatus.text :
+                          uncompressedStatus.type === 'used' ? uncompressedStatus.text :
+                          compressedStatus.type === 'error' && uncompressedStatus.type === 'error' ? 'Error checking addresses' :
+                          'New address'
+                };
+                
                 // Добавляем результат в таблицу
-                this.addResultToTable(wallet, {
-                    status: compressedStatus.type === 'valuable' || uncompressedStatus.type === 'valuable' ? compressedStatus : 
-                           compressedStatus.type === 'used' || uncompressedStatus.type === 'used' ? uncompressedStatus :
-                           compressedStatus
-                }, i);
+                this.addResultToTable(wallet, { status: walletStatus }, i);
                 
                 // Добавляем в историю если есть что-то интересное
-                if (compressedStatus.type !== 'new' || uncompressedStatus.type !== 'new') {
+                if (walletStatus.type !== 'new') {
                     this.addToHistory({
                         batchNumber: Math.floor(this.lastProcessedIndex / this.batchSize) + 1,
                         compressed: {
