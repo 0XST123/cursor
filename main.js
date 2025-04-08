@@ -372,13 +372,29 @@ class WalletFinder {
         }
 
         const row = document.createElement('tr');
+        
+        // Добавляем основную информацию
         row.innerHTML = `
             <td>${index + 1}</td>
-            <td title="${walletData.compressed.address}">${walletData.compressed.address}</td>
-            <td title="${walletData.uncompressed.address}">${walletData.uncompressed.address}</td>
-            <td title="${walletData.privateKey}">${walletData.privateKey}</td>
-            <td title="${walletData.sourcePhrase}">${walletData.sourcePhrase}</td>
-            <td class="status-${checkResult.status.type}">${checkResult.status.text}</td>
+            <td>
+                ${walletData.compressed.address}
+                <div class="details-row">Format: Legacy (P2PKH)</div>
+            </td>
+            <td>
+                ${walletData.uncompressed.address}
+                <div class="details-row">Format: Legacy (P2PKH)</div>
+            </td>
+            <td>
+                ${walletData.privateKey}
+                <div class="details-row">WIF: ${this.wallet.privateKeyToWIF(walletData.privateKey)}</div>
+            </td>
+            <td>
+                ${walletData.phrase}
+                <div class="details-row">Hash: ${CryptoJS.SHA256(walletData.phrase).toString()}</div>
+            </td>
+            <td class="status-${checkResult.status.type}">
+                ${checkResult.status.text}
+            </td>
         `;
 
         // Добавляем строку в таблицу
@@ -480,6 +496,13 @@ class WalletFinder {
                 // Проверяем результаты
                 const compressedStatus = this.getWalletStatus(compressedResult || { error: 'No data' });
                 const uncompressedStatus = this.getWalletStatus(uncompressedResult || { error: 'No data' });
+                
+                // Добавляем результат в таблицу
+                this.addResultToTable(wallet, {
+                    status: compressedStatus.type === 'valuable' || uncompressedStatus.type === 'valuable' ? compressedStatus : 
+                           compressedStatus.type === 'used' || uncompressedStatus.type === 'used' ? uncompressedStatus :
+                           compressedStatus
+                }, i);
                 
                 // Добавляем в историю если есть что-то интересное
                 if (compressedStatus.type !== 'new' || uncompressedStatus.type !== 'new') {
