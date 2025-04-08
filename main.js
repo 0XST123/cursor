@@ -33,6 +33,7 @@ class WalletFinder {
         this.consecutiveErrors = 0;
         this.lastProcessedIndex = 0;
         this.processedCount = 0;
+        this.apiRequestCount = 0; // Счетчик API запросов
 
         // История
         this.historyItems = [];
@@ -154,12 +155,17 @@ class WalletFinder {
                 this.totalBtcFoundElement.textContent = this.totalBtcFound.toFixed(8);
             }
 
-            this.checkedCountElement.textContent = this.processedCount;
+            // Обновляем счетчик API запросов вместо проверенных адресов
+            if (this.checkedCountElement) {
+                this.checkedCountElement.textContent = this.apiRequestCount;
+            }
             
             if (this.startTime) {
                 const elapsedSeconds = (Date.now() - this.startTime) / 1000;
-                const speed = (this.processedCount / elapsedSeconds).toFixed(1);
-                this.checkSpeedElement.textContent = speed;
+                const speed = (this.apiRequestCount / elapsedSeconds).toFixed(1);
+                if (this.checkSpeedElement) {
+                    this.checkSpeedElement.textContent = speed;
+                }
             }
         } catch (error) {
             console.error('Error updating stats:', error);
@@ -220,6 +226,7 @@ class WalletFinder {
         };
         this.totalBtcFound = 0;
         this.errorCount = 0;
+        this.apiRequestCount = 0; // Сбрасываем счетчик API запросов
         this.saveState();
     }
 
@@ -238,6 +245,7 @@ class WalletFinder {
             used: 0,
             valuable: 0
         };
+        this.apiRequestCount = 0; // Сбрасываем счетчик API запросов
         this.checkedWallets = 0;
         this.checkedAddresses = 0;
         this.foundCount = 0;
@@ -440,6 +448,7 @@ class WalletFinder {
 
             const results = await this.api.checkAddressesBatch(addressesToCheck);
             this.errorCount = 0; // Reset error count on successful API call
+            this.apiRequestCount++; // Увеличиваем счетчик успешных API запросов
             
             // Обрабатываем результаты
             for (let i = 0; i < currentBatchSlice.length; i++) {
