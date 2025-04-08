@@ -38,11 +38,10 @@ class BlockchairAPI {
                 
                 // Формируем правильный URL для API
                 const queryParams = new URLSearchParams({
-                    addresses: batch.join(','),
-                    key: this.apiKey
+                    addresses: batch.join(',')
                 });
                 
-                const response = await fetch(`${this.baseUrl}/addresses?${queryParams}`);
+                const response = await fetch(`${this.baseUrl}/dashboards/addresses/${batch.join(',')}?key=${this.apiKey}`);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -53,16 +52,29 @@ class BlockchairAPI {
                 if (data.error) {
                     throw new Error(data.error);
                 }
-                
-                // Валидация и обработка данных
+
+                // Обрабатываем данные для каждого адреса
                 for (const address of batch) {
                     const addressData = data.data[address];
                     if (!addressData) {
-                        results.set(address, { error: 'Address data not found' });
+                        results.set(address, {
+                            balance: 0,
+                            hasTransactions: false,
+                            transactionCount: 0,
+                            totalReceived: 0,
+                            totalSent: 0
+                        });
                         continue;
                     }
                     
-                    const result = this.validateAndProcessAddressData(addressData);
+                    const result = {
+                        balance: addressData.address.balance / 100000000, // конвертируем сатоши в BTC
+                        hasTransactions: addressData.address.transaction_count > 0,
+                        transactionCount: addressData.address.transaction_count,
+                        totalReceived: addressData.address.received / 100000000,
+                        totalSent: addressData.address.spent / 100000000
+                    };
+
                     results.set(address, result);
                     this.cache.set(address, result);
                 }
@@ -91,38 +103,22 @@ class BlockchairAPI {
 
     validateAndProcessAddressData(data) {
         try {
-            // Проверяем обязательные поля
-            if (!data || typeof data !== 'object') {
-                throw new Error('Invalid data format');
-            }
-
-            // Валидация баланса
-            const balance = parseFloat(data.balance || 0);
-            if (isNaN(balance)) {
-                throw new Error('Invalid balance value');
-            }
-
-            // Валидация транзакций
-            const transactionCount = parseInt(data.transaction_count || 0);
-            if (isNaN(transactionCount)) {
-                throw new Error('Invalid transaction count');
-            }
-
-            // Валидация сумм
-            const totalReceived = parseFloat(data.total_received || 0);
-            const totalSent = parseFloat(data.total_sent || 0);
-            
-            if (isNaN(totalReceived) || isNaN(totalSent)) {
-                throw new Error('Invalid transaction amounts');
+            if (!data || !data.address) {
+                return {
+                    balance: 0,
+                    hasTransactions: false,
+                    transactionCount: 0,
+                    totalReceived: 0,
+                    totalSent: 0
+                };
             }
 
             return {
-                balance,
-                transactionCount,
-                hasTransactions: transactionCount > 0,
-                totalReceived,
-                totalSent,
-                lastActivity: data.last_activity || null
+                balance: data.address.balance / 100000000,
+                hasTransactions: data.address.transaction_count > 0,
+                transactionCount: data.address.transaction_count,
+                totalReceived: data.address.received / 100000000,
+                totalSent: data.address.spent / 100000000
             };
         } catch (error) {
             console.error('Data validation error:', error);
