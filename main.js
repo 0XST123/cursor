@@ -35,7 +35,7 @@ class WalletFinder {
 
         // Initialize UI
         this.initializeUI();
-        this.loadState();
+        this.restoreState();
     }
 
     async runTests() {
@@ -113,9 +113,6 @@ class WalletFinder {
             // Add auto-save on page unload
             window.addEventListener('beforeunload', () => this.saveState());
             
-            // Try to restore previous state after UI is initialized
-            this.restoreState();
-            
         } catch (error) {
             console.error('Error initializing UI:', error);
             throw error;
@@ -165,34 +162,20 @@ class WalletFinder {
     }
 
     saveState() {
-        const state = {
-            lastProcessedIndex: this.lastProcessedIndex,
-            processedCount: this.processedCount,
-            currentBatch: this.currentBatch,
-            batchSize: this.batchSize,
-            delay: this.delay,
-            stats: this.stats,
-            checkedWallets: this.checkedWallets,
-            checkedAddresses: this.checkedAddresses,
-            foundCount: this.foundCount,
-            totalBtcFound: this.totalBtcFound,
-            startTime: this.startTime,
-            pauseTime: this.pauseTime,
-            totalPauseTime: this.totalPauseTime,
-            history: Array.from(document.querySelectorAll('#historyList .history-item')).map(item => ({
-                batchNumber: item.dataset.batch,
-                compressedAddress: item.dataset.compressedAddress,
-                uncompressedAddress: item.dataset.uncompressedAddress,
-                privateKey: item.dataset.privateKey,
-                balance: parseFloat(item.dataset.balance),
-                status: item.dataset.status,
-                timestamp: item.dataset.timestamp
-            })),
-            errorCount: this.errorCount,
-            maxConsecutiveErrors: this.maxConsecutiveErrors,
-            consecutiveErrors: this.consecutiveErrors
-        };
-        localStorage.setItem('walletFinderState', JSON.stringify(state));
+        try {
+            const state = {
+                lastProcessedIndex: this.lastProcessedIndex,
+                processedCount: this.processedCount,
+                currentBatch: this.currentBatch,
+                batchSize: this.batchSize,
+                delay: this.delay,
+                stats: this.stats,
+                totalBtcFound: this.totalBtcFound
+            };
+            localStorage.setItem('walletFinderState', JSON.stringify(state));
+        } catch (error) {
+            console.error('Error saving state:', error);
+        }
     }
 
     restoreState() {
@@ -206,83 +189,33 @@ class WalletFinder {
                 this.batchSize = state.batchSize || 100;
                 this.delay = state.delay || 1000;
                 this.stats = state.stats || { new: 0, used: 0, valuable: 0 };
-                this.checkedWallets = state.checkedWallets || 0;
-                this.checkedAddresses = state.checkedAddresses || 0;
-                this.foundCount = state.foundCount || 0;
                 this.totalBtcFound = state.totalBtcFound || 0;
-                this.startTime = state.startTime || null;
-                this.pauseTime = state.pauseTime || null;
-                this.totalPauseTime = state.totalPauseTime || 0;
-                this.errorCount = state.errorCount || 0;
-                this.maxConsecutiveErrors = state.maxConsecutiveErrors || 5;
-                this.consecutiveErrors = state.consecutiveErrors || 0;
-
-                // Restore history
-                if (state.history && this.historyList) {
-                    this.historyList.innerHTML = '';
-                    // Разворачиваем массив, чтобы сохранить порядок новые-сверху
-                    [...state.history].reverse().forEach(item => {
-                        const status = JSON.parse(item.status);
-                        const historyItem = document.createElement('div');
-                        historyItem.className = `history-item status-${status.type}`;
-                        historyItem.dataset.batch = item.batchNumber;
-                        historyItem.dataset.compressedAddress = item.compressedAddress;
-                        historyItem.dataset.uncompressedAddress = item.uncompressedAddress;
-                        historyItem.dataset.privateKey = item.privateKey;
-                        historyItem.dataset.balance = item.balance;
-                        historyItem.dataset.status = item.status;
-                        historyItem.dataset.timestamp = item.timestamp;
-                        
-                        historyItem.innerHTML = `
-                            <div>Batch #${item.batchNumber} - ${new Date(item.timestamp).toLocaleString()}</div>
-                            <div>Compressed: ${item.compressedAddress}</div>
-                            <div>Uncompressed: ${item.uncompressedAddress}</div>
-                            <div>Private Key: ${item.privateKey}</div>
-                            <div>Balance: ${parseFloat(item.balance).toFixed(8)} BTC</div>
-                            <div>Status: ${status.text}</div>
-                        `;
-                        this.historyList.appendChild(historyItem);
-                    });
-                }
-
+                
+                // Обновляем UI
+                if (this.batchSizeInput) this.batchSizeInput.value = this.batchSize;
+                if (this.delayInput) this.delayInput.value = this.delay;
+                this.updateProgress();
                 this.updateStats();
             }
         } catch (error) {
             console.error('Error restoring state:', error);
-            // If restore fails, reset to initial state
+            // В случае ошибки используем значения по умолчанию
             this.resetState();
         }
     }
 
     resetState() {
         this.currentBatch = [];
+        this.lastProcessedIndex = 0;
+        this.processedCount = 0;
         this.stats = {
             new: 0,
             used: 0,
             valuable: 0
         };
-        this.checkedWallets = 0;
-        this.checkedAddresses = 0;
-        this.foundCount = 0;
         this.totalBtcFound = 0;
-        this.startTime = null;
-        this.pauseTime = null;
-        this.totalPauseTime = 0;
         this.errorCount = 0;
-        this.maxConsecutiveErrors = 5;
-        this.consecutiveErrors = 0;
-        this.lastProcessedIndex = 0;
-        this.processedCount = 0;
-
-        // Безопасно очищаем таблицу
-        if (this.resultsBody) {
-            this.resultsBody.innerHTML = '';
-        }
-        if (this.historyList) {
-            this.historyList.innerHTML = '';
-        }
-
-        this.updateStats();
+        this.saveState();
     }
 
     reload() {
