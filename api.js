@@ -1,7 +1,7 @@
 // API провайдер для Blockchair
 class BlockchairAPI {
     constructor() {
-        this.apiKey = 'A__test_key';
+        this.apiKey = 'A___XlvcUCcOjwiFTR2rRKASglriL77n';
         this.baseUrl = 'https://api.blockchair.com/bitcoin';
         this.requestLimit = 30;
         this.requestCount = 0;
