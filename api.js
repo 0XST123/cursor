@@ -1,116 +1,142 @@
 // API провайдер для Blockchair
 class BlockchairAPI {
     constructor() {
-        this.API_KEY = 'A___XlvcUCcOjwiFTR2rRKASglriL77n';
+        this.apiKey = 'A__test_key';
         this.baseUrl = 'https://api.blockchair.com/bitcoin';
-        this.maxRetries = 3;
-        this.retryDelay = 1000; // 1 second
-        this.lastRequestTime = Date.now();
+        this.requestLimit = 30;
+        this.requestCount = 0;
+        this.lastRequestTime = 0;
+        this.minDelay = 1000;
+        this.errorCount = 0;
+        this.maxErrors = 5;
+        this.cache = new Map();
     }
 
-    async checkAddressesBatch(addresses, retryCount = 0) {
-        try {
-            // Добавляем минимальную задержку между запросами
-            const now = Date.now();
-            const timeSinceLastRequest = now - this.lastRequestTime;
-            if (timeSinceLastRequest < 500) {
-                await new Promise(resolve => setTimeout(resolve, 500 - timeSinceLastRequest));
-            }
+    async checkAddressesBatch(addresses) {
+        if (!Array.isArray(addresses) || addresses.length === 0) {
+            throw new Error('Invalid addresses array');
+        }
 
-            // Формируем URL для batch-запроса
-            const addressList = addresses.join(',');
-            const url = `${this.baseUrl}/addresses/`;
-            const params = new URLSearchParams({
-                addresses: addressList,
-                key: this.API_KEY,
-                limit: 1,
-                offset: 0,
-                state: 'latest',
-                transaction_details: false,
-                omni: false
-            });
-            const finalUrl = `${url}?${params.toString()}`;
+        // Проверяем кэш
+        const uncachedAddresses = addresses.filter(addr => !this.cache.has(addr));
+        if (uncachedAddresses.length === 0) {
+            return addresses.map(addr => this.cache.get(addr));
+        }
 
-            const response = await fetch(finalUrl, {
-                timeout: 30000, // 30 second timeout for batch requests
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (!response.ok) {
-                if ((response.status === 504 || response.status === 500) && retryCount < this.maxRetries) {
-                    await new Promise(resolve => setTimeout(resolve, this.retryDelay));
-                    return this.checkAddressesBatch(addresses, retryCount + 1);
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            this.lastRequestTime = Date.now();
+        // Группируем адреса по 40 штук
+        const batches = [];
+        for (let i = 0; i < uncachedAddresses.length; i += 40) {
+            batches.push(uncachedAddresses.slice(i, i + 40));
+        }
 
-            // Обрабатываем результаты для каждого адреса
-            const results = {};
-            if (!data.data || !Array.isArray(data.data)) {
-                throw new Error('Invalid API response format');
-            }
-
-            // Создаем map адресов для быстрого поиска
-            const addressMap = new Map(data.data.map(item => [item.address, item]));
-
-            for (const address of addresses) {
-                const addressData = addressMap.get(address);
+        const results = new Map();
+        
+        for (const batch of batches) {
+            try {
+                await this.waitForRateLimit();
                 
-                if (!addressData) {
-                    results[address] = {
-                        balance: 0,
-                        transactionCount: 0,
-                        hasTransactions: false,
-                        totalReceived: 0,
-                        totalSent: 0
-                    };
-                    continue;
+                const response = await fetch(`${this.baseUrl}/dashboards/addresses/${batch.join(',')}?key=${this.apiKey}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Валидация и обработка данных
+                for (const address of batch) {
+                    const addressData = data.data[address];
+                    if (!addressData) {
+                        results.set(address, { error: 'Address data not found' });
+                        continue;
+                    }
+                    
+                    const result = this.validateAndProcessAddressData(addressData);
+                    results.set(address, result);
+                    this.cache.set(address, result);
+                }
+                
+                this.errorCount = 0;
+            } catch (error) {
+                console.error('Error in batch request:', error);
+                this.errorCount++;
+                
+                // Если слишком много ошибок, делаем длительную паузу
+                if (this.errorCount >= this.maxErrors) {
+                    await new Promise(resolve => setTimeout(resolve, 30000));
+                    this.errorCount = 0;
+                }
+                
+                // Помечаем все адреса в батче как ошибочные
+                for (const address of batch) {
+                    results.set(address, { error: error.message });
+                }
+            }
+        }
+        
+        // Возвращаем результаты для всех запрошенных адресов
+        return addresses.map(addr => results.get(addr) || { error: 'Unknown error' });
+    }
 
-                const balance = Number(addressData.balance || 0) / 100000000;
-                const txCount = Number(addressData.transaction_count || 0);
-                const totalReceived = Number(addressData.received || 0) / 100000000;
-                const totalSent = Number(addressData.spent || 0) / 100000000;
-                const hasTransactions = txCount > 0 || totalReceived > 0 || totalSent > 0;
-
-                results[address] = {
-                    balance,
-                    transactionCount: txCount,
-                    hasTransactions,
-                    totalReceived,
-                    totalSent
-                };
+    validateAndProcessAddressData(data) {
+        try {
+            // Проверяем обязательные поля
+            if (!data || typeof data !== 'object') {
+                throw new Error('Invalid data format');
             }
 
-            return results;
+            // Валидация баланса
+            const balance = parseFloat(data.balance || 0);
+            if (isNaN(balance)) {
+                throw new Error('Invalid balance value');
+            }
+
+            // Валидация транзакций
+            const transactionCount = parseInt(data.transaction_count || 0);
+            if (isNaN(transactionCount)) {
+                throw new Error('Invalid transaction count');
+            }
+
+            // Валидация сумм
+            const totalReceived = parseFloat(data.total_received || 0);
+            const totalSent = parseFloat(data.total_sent || 0);
+            
+            if (isNaN(totalReceived) || isNaN(totalSent)) {
+                throw new Error('Invalid transaction amounts');
+            }
+
+            return {
+                balance,
+                transactionCount,
+                hasTransactions: transactionCount > 0,
+                totalReceived,
+                totalSent,
+                lastActivity: data.last_activity || null
+            };
         } catch (error) {
-            console.error('Blockchair API batch error:', error);
-            
-            if ((error.message.includes('timeout') || error.message.includes('504')) && retryCount < this.maxRetries) {
-                await new Promise(resolve => setTimeout(resolve, this.retryDelay));
-                return this.checkAddressesBatch(addresses, retryCount + 1);
-            }
-            
-            if (error.message.includes('429')) {
-                throw new Error('API limit reached');
-            }
-            
-            // В случае ошибки возвращаем пустые результаты для всех адресов
-            return addresses.reduce((acc, address) => {
-                acc[address] = {
-                    balance: 0,
-                    transactionCount: 0,
-                    hasTransactions: false,
-                    totalReceived: 0,
-                    totalSent: 0
-                };
-                return acc;
-            }, {});
+            console.error('Data validation error:', error);
+            return { error: error.message };
+        }
+    }
+
+    async waitForRateLimit() {
+        const now = Date.now();
+        const timeSinceLastRequest = now - this.lastRequestTime;
+        
+        if (timeSinceLastRequest < this.minDelay) {
+            await new Promise(resolve => setTimeout(resolve, this.minDelay - timeSinceLastRequest));
+        }
+        
+        this.lastRequestTime = Date.now();
+        this.requestCount++;
+        
+        if (this.requestCount >= this.requestLimit) {
+            await new Promise(resolve => setTimeout(resolve, 60000));
+            this.requestCount = 0;
         }
     }
 

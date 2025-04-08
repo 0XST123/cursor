@@ -3,16 +3,12 @@ class WalletFinder {
         // Initialize components
         this.wallet = new BitcoinWallet();
         this.phraseGenerator = new PhraseGenerator();
-        this.api = BitcoinAPIFactory.createAPI();
+        this.api = new BlockchairAPI();
         
         // Batch settings
         this.batchSize = 100;
-        this.currentBatch = {
-            number: 1,
-            keys: [],
-            progress: 0,
-            processed: 0
-        };
+        this.currentBatch = [];
+        this.delay = 1000;
         
         // Statistics
         this.stats = {
@@ -30,8 +26,16 @@ class WalletFinder {
         this.totalPauseTime = 0;
         this.isRunning = false;
 
+        // Добавляем счетчик ошибок
+        this.errorCount = 0;
+        this.maxConsecutiveErrors = 5;
+        this.consecutiveErrors = 0;
+        this.lastProcessedIndex = 0;
+        this.processedCount = 0;
+
         // Initialize UI
         this.initializeUI();
+        this.loadState();
     }
 
     async runTests() {
@@ -55,8 +59,14 @@ class WalletFinder {
         try {
             // Get UI elements
             const requiredElements = {
-                startButton: 'startButton',
-                stopButton: 'stopButton',
+                startButton: 'startBtn',
+                stopButton: 'stopBtn',
+                batchSizeInput: 'batchSize',
+                delayInput: 'delay',
+                progressBar: 'progressBar',
+                progressText: 'progressText',
+                checkedCountElement: 'checkedCount',
+                checkSpeedElement: 'checkSpeed',
                 newCountElement: 'newCount',
                 usedCountElement: 'usedCount',
                 valuableCountElement: 'valuableCount',
@@ -86,7 +96,13 @@ class WalletFinder {
             }
             if (this.stopButton) {
                 this.stopButton.disabled = true;
-                this.stopButton.addEventListener('click', () => this.pause());
+                this.stopButton.addEventListener('click', () => this.stop());
+            }
+            if (this.batchSizeInput) {
+                this.batchSizeInput.addEventListener('change', () => this.updateBatchSize());
+            }
+            if (this.delayInput) {
+                this.delayInput.addEventListener('change', () => this.updateDelay());
             }
 
             // Get table body reference
@@ -106,6 +122,20 @@ class WalletFinder {
         }
     }
 
+    updateBatchSize() {
+        this.batchSize = parseInt(this.batchSizeInput.value) || 100;
+    }
+
+    updateDelay() {
+        this.delay = parseInt(this.delayInput.value) || 1000;
+    }
+
+    updateProgress() {
+        const progress = (this.processedCount / this.currentBatch.length) * 100;
+        this.progressBar.style.width = `${progress}%`;
+        this.progressText.textContent = `${Math.round(progress)}%`;
+    }
+
     updateStats() {
         try {
             // Update status counts
@@ -121,6 +151,14 @@ class WalletFinder {
             if (this.totalBtcFoundElement) {
                 this.totalBtcFoundElement.textContent = this.totalBtcFound.toFixed(8);
             }
+
+            this.checkedCountElement.textContent = this.processedCount;
+            
+            if (this.startTime) {
+                const elapsedSeconds = (Date.now() - this.startTime) / 1000;
+                const speed = (this.processedCount / elapsedSeconds).toFixed(1);
+                this.checkSpeedElement.textContent = speed;
+            }
         } catch (error) {
             console.error('Error updating stats:', error);
         }
@@ -128,7 +166,11 @@ class WalletFinder {
 
     saveState() {
         const state = {
+            lastProcessedIndex: this.lastProcessedIndex,
+            processedCount: this.processedCount,
             currentBatch: this.currentBatch,
+            batchSize: this.batchSize,
+            delay: this.delay,
             stats: this.stats,
             checkedWallets: this.checkedWallets,
             checkedAddresses: this.checkedAddresses,
@@ -145,7 +187,10 @@ class WalletFinder {
                 balance: parseFloat(item.dataset.balance),
                 status: item.dataset.status,
                 timestamp: item.dataset.timestamp
-            }))
+            })),
+            errorCount: this.errorCount,
+            maxConsecutiveErrors: this.maxConsecutiveErrors,
+            consecutiveErrors: this.consecutiveErrors
         };
         localStorage.setItem('walletFinderState', JSON.stringify(state));
     }
@@ -155,15 +200,22 @@ class WalletFinder {
             const savedState = localStorage.getItem('walletFinderState');
             if (savedState) {
                 const state = JSON.parse(savedState);
-                this.currentBatch = state.currentBatch;
-                this.stats = state.stats;
+                this.lastProcessedIndex = state.lastProcessedIndex || 0;
+                this.processedCount = state.processedCount || 0;
+                this.currentBatch = state.currentBatch || [];
+                this.batchSize = state.batchSize || 100;
+                this.delay = state.delay || 1000;
+                this.stats = state.stats || { new: 0, used: 0, valuable: 0 };
                 this.checkedWallets = state.checkedWallets || 0;
                 this.checkedAddresses = state.checkedAddresses || 0;
-                this.foundCount = state.foundCount;
-                this.totalBtcFound = state.totalBtcFound;
-                this.startTime = state.startTime;
-                this.pauseTime = state.pauseTime;
+                this.foundCount = state.foundCount || 0;
+                this.totalBtcFound = state.totalBtcFound || 0;
+                this.startTime = state.startTime || null;
+                this.pauseTime = state.pauseTime || null;
                 this.totalPauseTime = state.totalPauseTime || 0;
+                this.errorCount = state.errorCount || 0;
+                this.maxConsecutiveErrors = state.maxConsecutiveErrors || 5;
+                this.consecutiveErrors = state.consecutiveErrors || 0;
 
                 // Restore history
                 if (state.history && this.historyList) {
@@ -203,12 +255,7 @@ class WalletFinder {
     }
 
     resetState() {
-        this.currentBatch = {
-            number: 1,
-            keys: [],
-            progress: 0,
-            processed: 0
-        };
+        this.currentBatch = [];
         this.stats = {
             new: 0,
             used: 0,
@@ -221,6 +268,11 @@ class WalletFinder {
         this.startTime = null;
         this.pauseTime = null;
         this.totalPauseTime = 0;
+        this.errorCount = 0;
+        this.maxConsecutiveErrors = 5;
+        this.consecutiveErrors = 0;
+        this.lastProcessedIndex = 0;
+        this.processedCount = 0;
 
         // Безопасно очищаем таблицу
         if (this.resultsBody) {
@@ -255,14 +307,14 @@ class WalletFinder {
         this.startTime = null;
         this.pauseTime = null;
         this.totalPauseTime = 0;
+        this.errorCount = 0;
+        this.maxConsecutiveErrors = 5;
+        this.consecutiveErrors = 0;
         
         // Reset batch
-        this.currentBatch = {
-            number: 1,
-            keys: [],
-            progress: 0,
-            processed: 0
-        };
+        this.currentBatch = [];
+        this.lastProcessedIndex = 0;
+        this.processedCount = 0;
         
         // Update UI
         this.updateStats();
@@ -278,7 +330,7 @@ class WalletFinder {
         console.log('Application reloaded');
     }
 
-    pause() {
+    stop() {
         if (!this.isRunning) return;
         
         this.isRunning = false;
@@ -294,7 +346,7 @@ class WalletFinder {
         
         // Сохраняем текущее состояние
         this.saveState();
-        console.log(`Processing paused at batch #${this.currentBatch.number}, position ${this.currentBatch.processed}`);
+        console.log(`Processing paused at batch #${this.currentBatch.length}, position ${this.lastProcessedIndex}`);
     }
 
     async start() {
@@ -302,8 +354,8 @@ class WalletFinder {
 
         try {
             // Если есть незавершенная партия, продолжаем с текущей позиции
-            if (this.currentBatch.keys.length > 0 && this.currentBatch.processed < this.batchSize) {
-                console.log(`Resuming batch #${this.currentBatch.number} from position ${this.currentBatch.processed}`);
+            if (this.currentBatch.length > 0 && this.lastProcessedIndex < this.currentBatch.length) {
+                console.log(`Resuming batch #${this.currentBatch.length}, position ${this.lastProcessedIndex}`);
             }
 
             this.isRunning = true;
@@ -329,42 +381,46 @@ class WalletFinder {
             }
 
             // Основной цикл обработки
-            while (this.isRunning) {
-                await this.processNextBatch();
-                // Добавляем задержку между батчами
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
+            await this.processNextBatch();
         } catch (error) {
             console.error('Error in start:', error);
             // Обрабатываем только критические ошибки, не связанные с API
             if (error.message !== 'API limit reached' && error.message !== 'API request timeout') {
                 alert(`Critical error: ${error.message}`);
             }
-            this.pause();
+            this.stop();
         }
     }
 
     getWalletStatus(data) {
-        // Если есть положительный баланс - ценный кошелек
+        if (data.error) {
+            return {
+                type: 'error',
+                text: `Ошибка: ${data.error}`,
+                details: data.error
+            };
+        }
+
         if (data.balance > 0) {
             return {
                 type: 'valuable',
-                text: `Balance: ${data.balance.toFixed(8)} BTC`
+                text: `Найден баланс: ${data.balance.toFixed(8)} BTC`,
+                details: `Баланс: ${data.balance.toFixed(8)} BTC, Транзакций: ${data.transactionCount}`
             };
         }
-        
-        // Если есть история транзакций - использованный кошелек
-        if (data.totalReceived > 0 || data.totalSent > 0) {
+
+        if (data.hasTransactions || data.transactionCount > 0 || data.totalReceived > 0 || data.totalSent > 0) {
             return {
                 type: 'used',
-                text: `Used (Total: ${data.totalReceived.toFixed(8)} BTC)`
+                text: 'Адрес использовался',
+                details: `Транзакций: ${data.transactionCount}, Получено: ${data.totalReceived.toFixed(8)} BTC, Отправлено: ${data.totalSent.toFixed(8)} BTC`
             };
         }
-        
-        // Если нет ни баланса, ни истории - новый кошелек
+
         return {
             type: 'new',
-            text: 'New'
+            text: 'Не использовался',
+            details: 'Нет транзакций'
         };
     }
 
@@ -439,152 +495,52 @@ class WalletFinder {
     }
 
     async processNextBatch() {
+        if (!this.isRunning) return;
+
         try {
-            // Generate new batch if needed
-            if (this.currentBatch.keys.length === 0) {
-                try {
-                    const phrases = await this.phraseGenerator.generatePhrases(this.batchSize);
-                    this.currentBatch.keys = [];
-                    
-                    // Generate wallets with error handling for each phrase
-                    for (const phrase of phrases) {
-                        try {
-                            const wallet = this.wallet.generateWallet(phrase);
-                            if (wallet && wallet.compressed && wallet.compressed.address &&
-                                wallet.uncompressed && wallet.uncompressed.address) {
-                                // Добавляем исходную фразу к данным кошелька
-                                wallet.sourcePhrase = phrase;
-                                this.currentBatch.keys.push(wallet);
-                            }
-                        } catch (error) {
-                            console.error('Error generating wallet for phrase:', phrase, error);
-                        }
+            const batch = this.currentBatch.slice(this.lastProcessedIndex, this.lastProcessedIndex + this.batchSize);
+            if (batch.length === 0) {
+                this.stop();
+                return;
+            }
+
+            const results = await this.api.checkAddressesBatch(batch);
+            
+            for (const result of results) {
+                if (!this.isRunning) return;
+                
+                this.processedCount++;
+                this.updateProgress();
+                this.updateStats();
+                
+                if (result.error) {
+                    this.errorCount++;
+                    if (this.errorCount >= this.maxConsecutiveErrors) {
+                        console.warn('Too many consecutive errors, pausing...');
+                        await new Promise(resolve => setTimeout(resolve, this.delay * 2));
+                        this.errorCount = 0;
                     }
-                    
-                    this.currentBatch.processed = 0;
-                    this.currentBatch.progress = 0;
-                    
-                    // If no valid wallets were generated, throw error
-                    if (this.currentBatch.keys.length === 0) {
-                        throw new Error('Failed to generate any valid wallets');
-                    }
-                } catch (error) {
-                    console.error('Error generating batch:', error);
-                    throw error;
+                } else {
+                    this.errorCount = 0;
                 }
             }
 
-            // Process wallets in batches of 40
-            const BATCH_SIZE = 40;
-            while (this.currentBatch.processed < this.currentBatch.keys.length) {
-                if (!this.isRunning) {
-                    console.log(`Processing stopped at position ${this.currentBatch.processed}`);
-                    return;
-                }
-
-                try {
-                    // Prepare addresses for batch check
-                    const addressBatch = [];
-                    const walletBatch = [];
-                    const endIndex = Math.min(this.currentBatch.processed + BATCH_SIZE, this.currentBatch.keys.length);
-                    
-                    for (let i = this.currentBatch.processed; i < endIndex; i++) {
-                        const walletData = this.currentBatch.keys[i];
-                        if (walletData && walletData.compressed && walletData.uncompressed &&
-                            walletData.compressed.address && walletData.uncompressed.address) {
-                            addressBatch.push(walletData.compressed.address);
-                            addressBatch.push(walletData.uncompressed.address);
-                            walletBatch.push(walletData);
-                        }
-                    }
-
-                    // Check addresses in batch
-                    const batchResults = await this.api.checkAddressesBatch(addressBatch);
-                    
-                    // Process results for each wallet
-                    for (let i = 0; i < walletBatch.length; i++) {
-                        const walletData = walletBatch[i];
-                        const compressedInfo = batchResults[walletData.compressed.address];
-                        const uncompressedInfo = batchResults[walletData.uncompressed.address];
-                        
-                        // Увеличиваем счетчики
-                        this.checkedAddresses += 2;
-                        this.checkedWallets++;
-                        this.currentBatch.processed++;
-                        
-                        // Определяем статус и баланс
-                        const balance = Math.max(compressedInfo.balance, uncompressedInfo.balance);
-                        const hasTransactions = compressedInfo.hasTransactions || uncompressedInfo.hasTransactions;
-                        const totalReceived = compressedInfo.totalReceived + uncompressedInfo.totalReceived;
-                        const totalSent = compressedInfo.totalSent + uncompressedInfo.totalSent;
-                        
-                        const status = this.getWalletStatus({ 
-                            balance, 
-                            hasTransactions,
-                            totalReceived,
-                            totalSent
-                        });
-                        
-                        this.stats[status.type]++;
-                        
-                        // Update batch progress
-                        this.currentBatch.progress = (this.currentBatch.processed / this.currentBatch.keys.length) * 100;
-                        
-                        // Add to main table with index
-                        this.addResultToTable(walletData, {
-                            balance: balance,
-                            status: status
-                        }, this.currentBatch.processed - walletBatch.length + i);
-
-                        // Add to history if valuable or used
-                        if (status.type !== 'new') {
-                            this.foundCount++;
-                            this.totalBtcFound += balance;
-                            
-                            this.addToHistory({
-                                batchNumber: this.currentBatch.number,
-                                compressed: walletData.compressed,
-                                uncompressed: walletData.uncompressed,
-                                privateKey: walletData.privateKey,
-                                balance: balance,
-                                status: status,
-                                timestamp: new Date().toISOString()
-                            });
-                        }
-                    }
-                    
-                    // Update UI
-                    this.updateStats();
-                    
-                    // Добавляем небольшую задержку между батчами
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                } catch (error) {
-                    console.error(`Error processing batch at position ${this.currentBatch.processed}:`, error);
-                    // Если ошибка связана с API, останавливаем обработку
-                    if (error.message === 'API limit reached') {
-                        this.pause();
-                        alert('API request limit reached. Processing paused.');
-                        throw error;
-                    }
-                    // Иначе пропускаем текущий батч и продолжаем
-                    this.currentBatch.processed = endIndex;
-                }
-            }
-
-            // Batch completed
-            if (this.currentBatch.processed >= this.currentBatch.keys.length) {
-                console.log(`Batch #${this.currentBatch.number} completed`);
-                this.currentBatch.number++;
-                this.currentBatch.keys = [];
-                this.currentBatch.processed = 0;
-                this.currentBatch.progress = 0;
-            }
-
-            // Save state
+            this.lastProcessedIndex += batch.length;
             this.saveState();
+            
+            if (this.isRunning) {
+                setTimeout(() => this.processNextBatch(), this.delay);
+            }
         } catch (error) {
-            console.error('Error in batch processing:', error);
-            throw error;
+            console.error('Error processing batch:', error);
+            this.errorCount++;
+            
+            if (this.errorCount >= this.maxConsecutiveErrors) {
+                console.warn('Too many consecutive errors, stopping...');
+                this.stop();
+            } else {
+                setTimeout(() => this.processNextBatch(), this.delay * 2);
+            }
         }
     }
 
@@ -619,3 +575,4 @@ class WalletFinder {
         return walletData;
     }
 } 
+
