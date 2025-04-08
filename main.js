@@ -286,12 +286,22 @@ class WalletFinder {
         if (this.isRunning) return;
 
         try {
-            // Если есть незавершенная партия, продолжаем с текущей позиции
-            if (this.currentBatch.length > 0 && this.lastProcessedIndex < this.currentBatch.length) {
-                console.log(`Resuming batch #${this.currentBatch.length}, position ${this.lastProcessedIndex}`);
-            }
-
             this.isRunning = true;
+            
+            // Генерируем новый батч если нет текущего или он уже обработан
+            if (this.currentBatch.length === 0 || this.lastProcessedIndex >= this.currentBatch.length) {
+                this.currentBatch = [];
+                for (let i = 0; i < this.batchSize; i++) {
+                    const phrase = this.phraseGenerator.generatePhrase();
+                    const wallet = this.wallet.generateWallet(phrase);
+                    this.currentBatch.push({
+                        phrase,
+                        ...wallet
+                    });
+                }
+                this.lastProcessedIndex = 0;
+                this.processedCount = 0;
+            }
             
             // Обновляем время паузы при возобновлении
             if (this.pauseTime) {
@@ -317,7 +327,6 @@ class WalletFinder {
             await this.processNextBatch();
         } catch (error) {
             console.error('Error in start:', error);
-            // Обрабатываем только критические ошибки, не связанные с API
             if (error.message !== 'API limit reached' && error.message !== 'API request timeout') {
                 alert(`Critical error: ${error.message}`);
             }
@@ -431,34 +440,61 @@ class WalletFinder {
         if (!this.isRunning) return;
 
         try {
-            const batch = this.currentBatch.slice(this.lastProcessedIndex, this.lastProcessedIndex + this.batchSize);
-            if (batch.length === 0) {
+            const currentBatchSlice = this.currentBatch.slice(this.lastProcessedIndex, this.lastProcessedIndex + this.batchSize);
+            if (currentBatchSlice.length === 0) {
                 this.stop();
                 return;
             }
 
-            const results = await this.api.checkAddressesBatch(batch);
+            // Собираем все адреса для проверки
+            const addressesToCheck = currentBatchSlice.reduce((acc, wallet) => {
+                acc.push(wallet.compressed.address);
+                acc.push(wallet.uncompressed.address);
+                return acc;
+            }, []);
+
+            const results = await this.api.checkAddressesBatch(addressesToCheck);
             
-            for (const result of results) {
+            // Обрабатываем результаты
+            for (let i = 0; i < currentBatchSlice.length; i++) {
                 if (!this.isRunning) return;
+                
+                const wallet = currentBatchSlice[i];
+                const compressedResult = results[i * 2];
+                const uncompressedResult = results[i * 2 + 1];
+                
+                // Проверяем результаты
+                const compressedStatus = this.getWalletStatus(compressedResult || { error: 'No data' });
+                const uncompressedStatus = this.getWalletStatus(uncompressedResult || { error: 'No data' });
+                
+                // Добавляем в историю если есть что-то интересное
+                if (compressedStatus.type !== 'new' || uncompressedStatus.type !== 'new') {
+                    this.addToHistory({
+                        batchNumber: Math.floor(this.lastProcessedIndex / this.batchSize) + 1,
+                        compressed: {
+                            address: wallet.compressed.address,
+                            status: compressedStatus
+                        },
+                        uncompressed: {
+                            address: wallet.uncompressed.address,
+                            status: uncompressedStatus
+                        },
+                        privateKey: wallet.privateKey,
+                        sourcePhrase: wallet.phrase,
+                        balance: (compressedResult?.balance || 0) + (uncompressedResult?.balance || 0),
+                        timestamp: Date.now()
+                    });
+                }
+                
+                // Обновляем статистику
+                this.updateStatsForWallet(compressedStatus, uncompressedStatus, compressedResult, uncompressedResult);
                 
                 this.processedCount++;
                 this.updateProgress();
                 this.updateStats();
-                
-                if (result.error) {
-                    this.errorCount++;
-                    if (this.errorCount >= this.maxConsecutiveErrors) {
-                        console.warn('Too many consecutive errors, pausing...');
-                        await new Promise(resolve => setTimeout(resolve, this.delay * 2));
-                        this.errorCount = 0;
-                    }
-                } else {
-                    this.errorCount = 0;
-                }
             }
 
-            this.lastProcessedIndex += batch.length;
+            this.lastProcessedIndex += currentBatchSlice.length;
             this.saveState();
             
             if (this.isRunning) {
@@ -474,6 +510,24 @@ class WalletFinder {
             } else {
                 setTimeout(() => this.processNextBatch(), this.delay * 2);
             }
+        }
+    }
+
+    updateStatsForWallet(compressedStatus, uncompressedStatus, compressedResult, uncompressedResult) {
+        // Обновляем статистику по сжатому адресу
+        if (compressedStatus.type === 'new') this.stats.new++;
+        if (compressedStatus.type === 'used') this.stats.used++;
+        if (compressedStatus.type === 'valuable') {
+            this.stats.valuable++;
+            this.totalBtcFound += compressedResult.balance || 0;
+        }
+
+        // Обновляем статистику по несжатому адресу
+        if (uncompressedStatus.type === 'new') this.stats.new++;
+        if (uncompressedStatus.type === 'used') this.stats.used++;
+        if (uncompressedStatus.type === 'valuable') {
+            this.stats.valuable++;
+            this.totalBtcFound += uncompressedResult.balance || 0;
         }
     }
 
