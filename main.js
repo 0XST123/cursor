@@ -34,6 +34,10 @@ class WalletFinder {
         this.lastProcessedIndex = 0;
         this.processedCount = 0;
 
+        // История
+        this.historyItems = [];
+        this.loadHistoryFromStorage();
+        
         // Initialize UI
         this.initializeUI();
         this.restoreState();
@@ -250,6 +254,11 @@ class WalletFinder {
         this.lastProcessedIndex = 0;
         this.processedCount = 0;
         
+        // Clear history
+        this.historyItems = [];
+        this.updateHistoryDisplay();
+        this.saveHistoryToStorage();
+        
         // Update UI
         this.updateStats();
         
@@ -366,87 +375,40 @@ class WalletFinder {
     addResultToTable(walletData, checkResult, index) {
         if (!this.resultsBody) return;
 
-        // Очищаем таблицу если это первый элемент нового батча
-        if (index === 0) {
+        // Очищаем таблицу если количество строк превышает 20
+        if (this.resultsBody.children.length >= 20) {
             this.resultsBody.innerHTML = '';
         }
 
         const row = document.createElement('tr');
-        
-        // Добавляем основную информацию
         row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>
-                ${walletData.compressed.address}
-                <div class="details-row">Format: Legacy (P2PKH)</div>
-            </td>
-            <td>
-                ${walletData.uncompressed.address}
-                <div class="details-row">Format: Legacy (P2PKH)</div>
-            </td>
-            <td>
-                ${walletData.privateKey}
-                <div class="details-row">WIF: ${this.wallet.privateKeyToWIF(walletData.privateKey)}</div>
-            </td>
-            <td>
-                ${walletData.phrase}
-                <div class="details-row">Hash: ${CryptoJS.SHA256(walletData.phrase).toString()}</div>
-            </td>
-            <td class="status-${checkResult.status.type}">
-                ${checkResult.status.text}
-            </td>
+            <td>${this.processedCount + 1}</td>
+            <td>${walletData.compressed.address}</td>
+            <td>${walletData.uncompressed.address}</td>
+            <td>${walletData.privateKey}</td>
+            <td>${walletData.phrase}</td>
+            <td class="status-${checkResult.status.type}">${checkResult.status.text}</td>
         `;
 
         // Добавляем строку в таблицу
         this.resultsBody.appendChild(row);
-
-        // Если таблица стала слишком длинной, удаляем старые записи
-        while (this.resultsBody.children.length > 20) {
-            this.resultsBody.removeChild(this.resultsBody.firstChild);
-        }
     }
 
     addToHistory(data) {
-        if (!this.historyList) return;
+        // Проверяем, не существует ли уже такой адрес
+        const isDuplicate = this.historyItems.some(item => 
+            item.compressed.address === data.compressed.address || 
+            item.uncompressed.address === data.uncompressed.address
+        );
 
-        // Проверяем, не существует ли уже такой адрес в истории
-        const existingItems = Array.from(this.historyList.children);
-        const isDuplicate = existingItems.some(item => {
-            return item.dataset.compressedAddress === data.compressed.address || 
-                   item.dataset.uncompressedAddress === data.uncompressed.address;
-        });
+        if (isDuplicate) return;
 
-        if (isDuplicate) {
-            return;
-        }
+        // Добавляем новый элемент в начало массива
+        this.historyItems.unshift(data);
 
-        const historyItem = document.createElement('div');
-        historyItem.className = `history-item status-${data.status.type}`;
-        historyItem.dataset.batch = data.batchNumber;
-        historyItem.dataset.compressedAddress = data.compressed.address;
-        historyItem.dataset.uncompressedAddress = data.uncompressed.address;
-        historyItem.dataset.privateKey = data.privateKey;
-        historyItem.dataset.sourcePhrase = data.sourcePhrase;
-        historyItem.dataset.balance = data.balance;
-        historyItem.dataset.status = JSON.stringify(data.status);
-        historyItem.dataset.timestamp = data.timestamp;
-        
-        historyItem.innerHTML = `
-            <div>Batch #${data.batchNumber} - ${new Date(data.timestamp).toLocaleString()}</div>
-            <div>Phrase: ${data.sourcePhrase}</div>
-            <div>Compressed: ${data.compressed.address}</div>
-            <div>Uncompressed: ${data.uncompressed.address}</div>
-            <div>Private Key: ${data.privateKey}</div>
-            <div>Balance: ${data.balance.toFixed(8)} BTC</div>
-            <div>Status: ${data.status.text}</div>
-        `;
-        
-        // Добавляем новый элемент в начало списка
-        if (this.historyList.firstChild) {
-            this.historyList.insertBefore(historyItem, this.historyList.firstChild);
-        } else {
-            this.historyList.appendChild(historyItem);
-        }
+        // Обновляем отображение и сохраняем в localStorage
+        this.updateHistoryDisplay();
+        this.saveHistoryToStorage();
     }
 
     async processNextBatch() {
@@ -465,7 +427,6 @@ class WalletFinder {
                     });
                 }
                 this.lastProcessedIndex = 0;
-                this.processedCount = 0;
             }
 
             const currentBatchSlice = this.currentBatch.slice(this.lastProcessedIndex, this.lastProcessedIndex + this.batchSize);
@@ -504,16 +465,9 @@ class WalletFinder {
                           compressedStatus.type === 'error' && uncompressedStatus.type === 'error' ? 'Error checking addresses' :
                           'New address'
                 };
-                
-                // Обновляем статус в существующей строке таблицы
-                const row = this.resultsBody.children[i];
-                if (row) {
-                    const statusCell = row.querySelector('td:last-child');
-                    if (statusCell) {
-                        statusCell.className = `status-${walletStatus.type}`;
-                        statusCell.textContent = walletStatus.text;
-                    }
-                }
+
+                // Добавляем результат в таблицу
+                this.addResultToTable(wallet, { status: walletStatus }, i);
                 
                 // Добавляем в историю если есть что-то интересное
                 if (walletStatus.type !== 'new') {
@@ -608,6 +562,53 @@ class WalletFinder {
         console.log('Uncompressed address starts with:', walletData.uncompressed.address[0]);
         
         return walletData;
+    }
+
+    // Загрузка истории из localStorage
+    loadHistoryFromStorage() {
+        try {
+            const savedHistory = localStorage.getItem('walletFinderHistory');
+            if (savedHistory) {
+                this.historyItems = JSON.parse(savedHistory);
+            }
+        } catch (error) {
+            console.error('Error loading history from storage:', error);
+            this.historyItems = [];
+        }
+    }
+
+    // Сохранение истории в localStorage
+    saveHistoryToStorage() {
+        try {
+            localStorage.setItem('walletFinderHistory', JSON.stringify(this.historyItems));
+        } catch (error) {
+            console.error('Error saving history to storage:', error);
+        }
+    }
+
+    // Обновление отображения истории
+    updateHistoryDisplay() {
+        if (!this.historyList) return;
+
+        this.historyList.innerHTML = '';
+        
+        // Отображаем историю от новых к старым
+        for (const data of this.historyItems) {
+            const historyItem = document.createElement('div');
+            historyItem.className = `history-item status-${data.status.type}`;
+            
+            historyItem.innerHTML = `
+                <div>Batch #${data.batchNumber} - ${new Date(data.timestamp).toLocaleString()}</div>
+                <div>Phrase: ${data.sourcePhrase}</div>
+                <div>Compressed: ${data.compressed.address}</div>
+                <div>Uncompressed: ${data.uncompressed.address}</div>
+                <div>Private Key: ${data.privateKey}</div>
+                <div>Balance: ${data.balance.toFixed(8)} BTC</div>
+                <div>Status: ${data.status.text}</div>
+            `;
+            
+            this.historyList.appendChild(historyItem);
+        }
     }
 } 
 
