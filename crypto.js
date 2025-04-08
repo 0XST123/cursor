@@ -384,4 +384,34 @@ class BitcoinWallet {
             };
         }
     }
+
+    // Convert private key to WIF format
+    privateKeyToWIF(privateKeyHex) {
+        try {
+            // Add version byte (0x80 for mainnet)
+            const versionByte = '80';
+            // Add compression byte (0x01)
+            const compressionByte = '01';
+            const extendedKey = versionByte + privateKeyHex + compressionByte;
+            
+            // Double SHA-256 for checksum
+            const firstSHA = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(extendedKey));
+            const secondSHA = CryptoJS.SHA256(firstSHA);
+            
+            // Take first 4 bytes of double SHA-256 as checksum
+            const checksum = secondSHA.toString().substring(0, 8);
+            
+            // Combine version + private key + compression byte + checksum
+            const binaryWIF = extendedKey + checksum;
+            
+            // Convert to base58
+            const bytes = this.hexToBytes(binaryWIF);
+            const wif = this.base58Encode(bytes);
+            
+            return wif;
+        } catch (error) {
+            console.error('Error converting private key to WIF:', error);
+            return 'Error: Could not convert to WIF';
+        }
+    }
 } 
