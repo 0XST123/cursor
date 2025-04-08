@@ -407,62 +407,45 @@ class WalletFinder {
     }
 
     addToHistory(data) {
-        try {
-            const historyItem = document.createElement('div');
-            historyItem.className = 'history-item';
-            
-            // Определяем общий статус кошелька
-            const compressedStatus = data.compressed.status || { type: 'error', text: 'Error checking address' };
-            const uncompressedStatus = data.uncompressed.status || { type: 'error', text: 'Error checking address' };
-            
-            // Выбираем наиболее важный статус
-            const status = compressedStatus.type === 'valuable' || uncompressedStatus.type === 'valuable' ? 'valuable' :
-                          compressedStatus.type === 'used' || uncompressedStatus.type === 'used' ? 'used' : 'new';
-            
-            historyItem.classList.add(`status-${status}`);
-            
-            historyItem.innerHTML = `
-                <div class="history-header">
-                    <span>Batch #${data.batchNumber}</span>
-                    <span>${new Date(data.timestamp).toLocaleString()}</span>
-                </div>
-                <div class="history-addresses">
-                    <div class="address-item">
-                        <div class="address-label">Compressed:</div>
-                        <div class="address-value">${data.compressed.address}</div>
-                        <div class="address-status">${compressedStatus.text}</div>
-                    </div>
-                    <div class="address-item">
-                        <div class="address-label">Uncompressed:</div>
-                        <div class="address-value">${data.uncompressed.address}</div>
-                        <div class="address-status">${uncompressedStatus.text}</div>
-                    </div>
-                </div>
-                <div class="history-details">
-                    <div class="detail-item">
-                        <span class="detail-label">Private Key:</span>
-                        <span class="detail-value">${data.privateKey}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Source Phrase:</span>
-                        <span class="detail-value">${data.sourcePhrase}</span>
-                    </div>
-                    ${data.balance > 0 ? `
-                        <div class="detail-item">
-                            <span class="detail-label">Balance:</span>
-                            <span class="detail-value">${data.balance.toFixed(8)} BTC</span>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-            
-            // Добавляем в начало списка
-            const historyList = document.getElementById('historyList');
-            if (historyList) {
-                historyList.insertBefore(historyItem, historyList.firstChild);
-            }
-        } catch (error) {
-            console.error('Error adding to history:', error);
+        if (!this.historyList) return;
+
+        // Проверяем, не существует ли уже такой адрес в истории
+        const existingItems = Array.from(this.historyList.children);
+        const isDuplicate = existingItems.some(item => {
+            return item.dataset.compressedAddress === data.compressed.address || 
+                   item.dataset.uncompressedAddress === data.uncompressed.address;
+        });
+
+        if (isDuplicate) {
+            return;
+        }
+
+        const historyItem = document.createElement('div');
+        historyItem.className = `history-item status-${data.status.type}`;
+        historyItem.dataset.batch = data.batchNumber;
+        historyItem.dataset.compressedAddress = data.compressed.address;
+        historyItem.dataset.uncompressedAddress = data.uncompressed.address;
+        historyItem.dataset.privateKey = data.privateKey;
+        historyItem.dataset.sourcePhrase = data.sourcePhrase;
+        historyItem.dataset.balance = data.balance;
+        historyItem.dataset.status = JSON.stringify(data.status);
+        historyItem.dataset.timestamp = data.timestamp;
+        
+        historyItem.innerHTML = `
+            <div>Batch #${data.batchNumber} - ${new Date(data.timestamp).toLocaleString()}</div>
+            <div>Phrase: ${data.sourcePhrase}</div>
+            <div>Compressed: ${data.compressed.address}</div>
+            <div>Uncompressed: ${data.uncompressed.address}</div>
+            <div>Private Key: ${data.privateKey}</div>
+            <div>Balance: ${data.balance.toFixed(8)} BTC</div>
+            <div>Status: ${data.status.text}</div>
+        `;
+        
+        // Добавляем новый элемент в начало списка
+        if (this.historyList.firstChild) {
+            this.historyList.insertBefore(historyItem, this.historyList.firstChild);
+        } else {
+            this.historyList.appendChild(historyItem);
         }
     }
 
@@ -470,28 +453,24 @@ class WalletFinder {
         if (!this.isRunning) return;
 
         try {
+            // Если текущий батч закончился или его нет, генерируем новый
+            if (this.lastProcessedIndex >= this.currentBatch.length) {
+                this.currentBatch = [];
+                for (let i = 0; i < this.batchSize; i++) {
+                    const phrase = this.phraseGenerator.generatePhrase();
+                    const wallet = this.wallet.generateWallet(phrase);
+                    this.currentBatch.push({
+                        phrase,
+                        ...wallet
+                    });
+                }
+                this.lastProcessedIndex = 0;
+                this.processedCount = 0;
+            }
+
             const currentBatchSlice = this.currentBatch.slice(this.lastProcessedIndex, this.lastProcessedIndex + this.batchSize);
-            if (currentBatchSlice.length === 0) {
-                this.stop();
-                return;
-            }
-
-            // Очищаем таблицу перед началом нового батча
-            if (this.lastProcessedIndex === 0) {
-                this.resultsBody.innerHTML = '';
-            }
-
-            // Сначала добавляем все строки в таблицу со статусом "проверка"
-            currentBatchSlice.forEach((wallet, i) => {
-                this.addResultToTable(wallet, {
-                    status: {
-                        type: 'checking',
-                        text: 'Checking...'
-                    }
-                }, i);
-            });
-
-            // Собираем все адреса для проверки
+            
+            // Collect addresses to check
             const addressesToCheck = currentBatchSlice.reduce((acc, wallet) => {
                 acc.push(wallet.compressed.address);
                 acc.push(wallet.uncompressed.address);
@@ -499,6 +478,7 @@ class WalletFinder {
             }, []);
 
             const results = await this.api.checkAddressesBatch(addressesToCheck);
+            this.errorCount = 0; // Reset error count on successful API call
             
             // Обрабатываем результаты
             for (let i = 0; i < currentBatchSlice.length; i++) {
