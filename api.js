@@ -3,11 +3,9 @@ class BlockchairAPI {
     constructor() {
         this.API_KEY = 'A___XlvcUCcOjwiFTR2rRKASglriL77n';
         this.baseUrl = 'https://api.blockchair.com/bitcoin';
-        this.requestsLeft = 0;
-        this.requestsPerSecond = 0;
-        this.lastRequestTime = Date.now();
         this.maxRetries = 3;
         this.retryDelay = 1000; // 1 second
+        this.lastRequestTime = Date.now();
     }
 
     async checkAddressesBatch(addresses, retryCount = 0) {
@@ -50,12 +48,6 @@ class BlockchairAPI {
             
             const data = await response.json();
             this.lastRequestTime = Date.now();
-
-            // Обновляем информацию о лимитах API
-            if (data.context && typeof data.context.api_requests_left !== 'undefined') {
-                this.requestsLeft = data.context.api_requests_left;
-                this.requestsPerSecond = data.context.api_requests_per_second_limit;
-            }
 
             // Обрабатываем результаты для каждого адреса
             const results = {};
@@ -122,18 +114,9 @@ class BlockchairAPI {
         }
     }
 
-    // Оставляем метод checkAddress для обратной совместимости
     async checkAddress(address, retryCount = 0) {
         const results = await this.checkAddressesBatch([address], retryCount);
         return results[address];
-    }
-
-    getRequestsLeft() {
-        return this.requestsLeft;
-    }
-
-    getRequestsPerSecond() {
-        return this.requestsPerSecond;
     }
 }
 

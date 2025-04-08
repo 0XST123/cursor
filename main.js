@@ -32,8 +32,6 @@ class WalletFinder {
 
         // Initialize UI
         this.initializeUI();
-        
-        console.log('WalletFinder initialized');
     }
 
     async runTests() {
@@ -621,5 +619,3 @@ class WalletFinder {
         return walletData;
     }
 } 
-// }); 
-// }); 

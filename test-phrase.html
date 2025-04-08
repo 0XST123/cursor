@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Phrase Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="crypto.js"></script>
+    <script src="api.js"></script>
+</head>
+<body>
+    <h2>Testing Phrase: p@ssw0rd#btc</h2>
+    <pre id="result">Testing...</pre>
+
+    <script>
+        async function testPhrase() {
+            try {
+                const phrase = 'p@ssw0rd#btc';
+                const wallet = new BitcoinWallet();
+                const api = BitcoinAPIFactory.createAPI();
+                
+                // Generate wallet data
+                console.log('Generating wallet...');
+                const walletData = wallet.generateWallet(phrase);
+                
+                // Check addresses
+                console.log('Checking addresses...');
+                const compressedInfo = await api.checkAddress(walletData.compressed.address);
+                const uncompressedInfo = await api.checkAddress(walletData.uncompressed.address);
+                
+                // Display results
+                const result = {
+                    phrase: phrase,
+                    privateKey: walletData.privateKey,
+                    compressed: {
+                        address: walletData.compressed.address,
+                        ...compressedInfo
+                    },
+                    uncompressed: {
+                        address: walletData.uncompressed.address,
+                        ...uncompressedInfo
+                    }
+                };
+                
+                document.getElementById('result').textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('result').textContent = 'Error: ' + error.message;
+                console.error('Test failed:', error);
+            }
+        }
+
+        // Run test
+        testPhrase();
+    </script>
+</body>
+</html> 
