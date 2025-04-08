@@ -36,12 +36,20 @@ class BlockchairAPI {
             try {
                 await this.waitForRateLimit();
                 
-                // Формируем правильный URL для API
-                const queryParams = new URLSearchParams({
-                    addresses: batch.join(',')
+                // Формируем URL в стиле версии 1.4
+                const url = `${this.baseUrl}/addresses/`;
+                const params = new URLSearchParams({
+                    addresses: batch.join(','),
+                    key: this.apiKey,
+                    limit: 1,
+                    offset: 0,
+                    state: 'latest',
+                    transaction_details: false,
+                    omni: false
                 });
+                const finalUrl = `${url}?${params.toString()}`;
                 
-                const response = await fetch(`${this.baseUrl}/dashboards/addresses/${batch.join(',')}?key=${this.apiKey}`);
+                const response = await fetch(finalUrl);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -55,7 +63,7 @@ class BlockchairAPI {
 
                 // Обрабатываем данные для каждого адреса
                 for (const address of batch) {
-                    const addressData = data.data[address];
+                    const addressData = data.data.find(item => item.address === address);
                     if (!addressData) {
                         results.set(address, {
                             balance: 0,
@@ -68,11 +76,11 @@ class BlockchairAPI {
                     }
                     
                     const result = {
-                        balance: addressData.address.balance / 100000000, // конвертируем сатоши в BTC
-                        hasTransactions: addressData.address.transaction_count > 0,
-                        transactionCount: addressData.address.transaction_count,
-                        totalReceived: addressData.address.received / 100000000,
-                        totalSent: addressData.address.spent / 100000000
+                        balance: Number(addressData.balance || 0) / 100000000,
+                        hasTransactions: Number(addressData.transaction_count || 0) > 0,
+                        transactionCount: Number(addressData.transaction_count || 0),
+                        totalReceived: Number(addressData.received || 0) / 100000000,
+                        totalSent: Number(addressData.spent || 0) / 100000000
                     };
 
                     results.set(address, result);
