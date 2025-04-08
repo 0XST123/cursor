@@ -14,7 +14,8 @@ class WalletFinder {
         this.stats = {
             new: 0,
             used: 0,
-            valuable: 0
+            valuable: 0,
+            totalBtc: 0
         };
         
         this.checkedWallets = 0;
