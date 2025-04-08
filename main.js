@@ -334,35 +334,31 @@ class WalletFinder {
         }
     }
 
-    getWalletStatus(data) {
-        if (data.error) {
+    getWalletStatus(result) {
+        if (result.error) {
             return {
                 type: 'error',
-                text: `Ошибка: ${data.error}`,
-                details: data.error
+                text: `Error: ${result.error}`
             };
         }
 
-        if (data.balance > 0) {
+        if (result.balance > 0) {
             return {
                 type: 'valuable',
-                text: `Найден баланс: ${data.balance.toFixed(8)} BTC`,
-                details: `Баланс: ${data.balance.toFixed(8)} BTC, Транзакций: ${data.transactionCount}`
+                text: `Found ${result.balance} BTC`
             };
         }
 
-        if (data.hasTransactions || data.transactionCount > 0 || data.totalReceived > 0 || data.totalSent > 0) {
+        if (result.hasTransactions) {
             return {
                 type: 'used',
-                text: 'Адрес использовался',
-                details: `Транзакций: ${data.transactionCount}, Получено: ${data.totalReceived.toFixed(8)} BTC, Отправлено: ${data.totalSent.toFixed(8)} BTC`
+                text: 'Used (no balance)'
             };
         }
 
         return {
             type: 'new',
-            text: 'Не использовался',
-            details: 'Нет транзакций'
+            text: 'New address'
         };
     }
 
@@ -394,45 +390,62 @@ class WalletFinder {
     }
 
     addToHistory(data) {
-        if (!this.historyList) return;
-
-        // Проверяем, не существует ли уже такой адрес в истории
-        const existingItems = Array.from(this.historyList.children);
-        const isDuplicate = existingItems.some(item => {
-            return item.dataset.compressedAddress === data.compressed.address || 
-                   item.dataset.uncompressedAddress === data.uncompressed.address;
-        });
-
-        if (isDuplicate) {
-            return;
-        }
-
-        const historyItem = document.createElement('div');
-        historyItem.className = `history-item status-${data.status.type}`;
-        historyItem.dataset.batch = data.batchNumber;
-        historyItem.dataset.compressedAddress = data.compressed.address;
-        historyItem.dataset.uncompressedAddress = data.uncompressed.address;
-        historyItem.dataset.privateKey = data.privateKey;
-        historyItem.dataset.sourcePhrase = data.sourcePhrase;
-        historyItem.dataset.balance = data.balance;
-        historyItem.dataset.status = JSON.stringify(data.status);
-        historyItem.dataset.timestamp = data.timestamp;
-        
-        historyItem.innerHTML = `
-            <div>Batch #${data.batchNumber} - ${new Date(data.timestamp).toLocaleString()}</div>
-            <div>Source Phrase: ${data.sourcePhrase}</div>
-            <div>Compressed: ${data.compressed.address}</div>
-            <div>Uncompressed: ${data.uncompressed.address}</div>
-            <div>Private Key: ${data.privateKey}</div>
-            <div>Balance: ${data.balance.toFixed(8)} BTC</div>
-            <div>Status: ${data.status.text}</div>
-        `;
-        
-        // Добавляем новый элемент в начало списка
-        if (this.historyList.firstChild) {
-            this.historyList.insertBefore(historyItem, this.historyList.firstChild);
-        } else {
-            this.historyList.appendChild(historyItem);
+        try {
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            
+            // Определяем общий статус кошелька
+            const compressedStatus = data.compressed.status || { type: 'error', text: 'Error checking address' };
+            const uncompressedStatus = data.uncompressed.status || { type: 'error', text: 'Error checking address' };
+            
+            // Выбираем наиболее важный статус
+            const status = compressedStatus.type === 'valuable' || uncompressedStatus.type === 'valuable' ? 'valuable' :
+                          compressedStatus.type === 'used' || uncompressedStatus.type === 'used' ? 'used' : 'new';
+            
+            historyItem.classList.add(`status-${status}`);
+            
+            historyItem.innerHTML = `
+                <div class="history-header">
+                    <span>Batch #${data.batchNumber}</span>
+                    <span>${new Date(data.timestamp).toLocaleString()}</span>
+                </div>
+                <div class="history-addresses">
+                    <div class="address-item">
+                        <div class="address-label">Compressed:</div>
+                        <div class="address-value">${data.compressed.address}</div>
+                        <div class="address-status">${compressedStatus.text}</div>
+                    </div>
+                    <div class="address-item">
+                        <div class="address-label">Uncompressed:</div>
+                        <div class="address-value">${data.uncompressed.address}</div>
+                        <div class="address-status">${uncompressedStatus.text}</div>
+                    </div>
+                </div>
+                <div class="history-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Private Key:</span>
+                        <span class="detail-value">${data.privateKey}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Source Phrase:</span>
+                        <span class="detail-value">${data.sourcePhrase}</span>
+                    </div>
+                    ${data.balance > 0 ? `
+                        <div class="detail-item">
+                            <span class="detail-label">Balance:</span>
+                            <span class="detail-value">${data.balance.toFixed(8)} BTC</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            // Добавляем в начало списка
+            const historyList = document.getElementById('historyList');
+            if (historyList) {
+                historyList.insertBefore(historyItem, historyList.firstChild);
+            }
+        } catch (error) {
+            console.error('Error adding to history:', error);
         }
     }
 
@@ -562,4 +575,5 @@ class WalletFinder {
         return walletData;
     }
 } 
+
 
