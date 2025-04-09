@@ -50,6 +50,32 @@ class WalletFinder {
         // Initialize UI
         this.initializeUI();
         this.restoreState();
+
+        this.exportHistoryBtn = document.getElementById('exportHistoryBtn');
+        this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        
+        this.exportHistoryBtn.addEventListener('click', () => this.exportHistory());
+        this.clearHistoryBtn.addEventListener('click', () => this.clearHistory());
+
+        // Инициализация элементов для проверки отдельного адреса
+        this.singleAddressInput = document.getElementById('singleAddressInput');
+        this.checkSingleAddressBtn = document.getElementById('checkSingleAddressBtn');
+        this.singleCheckResultsTable = document.getElementById('singleCheckResultsTable');
+        this.singleCheckResultsBody = this.singleCheckResultsTable?.querySelector('tbody');
+        
+        // Добавляем обработчик
+        if (this.checkSingleAddressBtn) {
+            this.checkSingleAddressBtn.addEventListener('click', () => this.checkSingleAddress());
+        }
+        
+        // Добавляем обработчик Enter в поле ввода
+        if (this.singleAddressInput) {
+            this.singleAddressInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.checkSingleAddress();
+                }
+            });
+        }
     }
 
     async runTests() {
@@ -350,9 +376,6 @@ class WalletFinder {
     async start() {
         try {
             console.log('Starting wallet finder...');
-            
-            // Проверяем API перед запуском
-            await this.runTests();
             
             if (this.isRunning) {
                 console.log('Already running');
@@ -748,6 +771,87 @@ class WalletFinder {
             this.testApiButton.classList.remove('testing');
             this.testApiButton.textContent = 'Тест API';
             this.startButton.disabled = false;
+        }
+    }
+
+    exportHistory() {
+        const history = {
+            usedAddresses: Array.from(this.usedAddresses),
+            valuableAddresses: Array.from(this.valuableAddresses),
+            timestamp: new Date().toISOString()
+        };
+        
+        const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `wallet-history-${history.timestamp}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    clearHistory() {
+        if (confirm('Are you sure you want to clear the history? This action cannot be undone.')) {
+            this.usedAddresses.clear();
+            this.valuableAddresses.clear();
+            console.log('History cleared successfully');
+        }
+    }
+
+    async checkSingleAddress() {
+        if (!this.singleAddressInput || !this.singleCheckResultsBody) return;
+        
+        const address = this.singleAddressInput.value.trim();
+        if (!address) {
+            alert('Пожалуйста, введите адрес');
+            return;
+        }
+
+        try {
+            // Отключаем кнопку и показываем загрузку
+            this.checkSingleAddressBtn.disabled = true;
+            this.checkSingleAddressBtn.textContent = 'Проверка...';
+            
+            // Запрашиваем данные
+            const result = await this.api.checkAddress(address);
+            
+            // Создаем новую строку
+            const row = document.createElement('tr');
+            const status = this.getWalletStatus(result);
+            
+            // Добавляем класс статуса к строке
+            row.classList.add(`status-${status.type}`);
+            
+            // Заполняем данные
+            row.innerHTML = `
+                <td>${this.singleCheckResultsBody.children.length + 1}</td>
+                <td>${address}</td>
+                <td>${result.balance?.toFixed(8) || '0.00000000'} BTC</td>
+                <td>${result.transactionCount || 0}</td>
+                <td>${result.totalReceived?.toFixed(8) || '0.00000000'} BTC</td>
+                <td>${result.totalSent?.toFixed(8) || '0.00000000'} BTC</td>
+                <td>${status.text}</td>
+            `;
+            
+            // Добавляем строку в начало таблицы
+            if (this.singleCheckResultsBody.firstChild) {
+                this.singleCheckResultsBody.insertBefore(row, this.singleCheckResultsBody.firstChild);
+            } else {
+                this.singleCheckResultsBody.appendChild(row);
+            }
+            
+            // Очищаем поле ввода
+            this.singleAddressInput.value = '';
+            
+        } catch (error) {
+            console.error('Error checking address:', error);
+            alert(`Ошибка при проверке адреса: ${error.message}`);
+        } finally {
+            // Восстанавливаем кнопку
+            this.checkSingleAddressBtn.disabled = false;
+            this.checkSingleAddressBtn.textContent = 'Проверить';
         }
     }
 } 

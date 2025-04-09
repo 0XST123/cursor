@@ -58,8 +58,9 @@
                 </div>
                 <span id="progressText" class="progress-text">0%</span>
             </div>
-            <button id="startBtn" class="btn">Старт</button>
-            <button id="stopBtn" class="btn" disabled>Стоп</button>
+            <button id="startBtn" class="btn btn-success">Старт</button>
+            <button id="stopBtn" class="btn btn-danger">Стоп</button>
+            <button id="testApiBtn" class="btn btn-info">Тест API</button>
         </div>
 
         <div id="stats">
@@ -99,7 +100,43 @@
 
         <div id="history">
             <h3>History</h3>
+            <div class="history-controls">
+                <button id="exportHistoryBtn" class="btn btn-secondary">Экспорт истории</button>
+                <button id="clearHistoryBtn" class="btn btn-warning">Очистить историю</button>
+            </div>
             <div id="historyList"></div>
+        </div>
+
+        <div class="container mt-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Проверка отдельного адреса</h5>
+                </div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="singleAddressInput" placeholder="Введите Bitcoin адрес">
+                        <button class="btn btn-primary" type="button" id="checkSingleAddressBtn">Проверить</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <h5>Результаты проверки адресов</h5>
+                <table class="table table-striped" id="singleCheckResultsTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Адрес</th>
+                            <th>Баланс</th>
+                            <th>Транзакции</th>
+                            <th>Всего получено</th>
+                            <th>Всего отправлено</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </body>

@@ -594,4 +594,64 @@ button:disabled {
 
 .status-error {
     border-left: 3px solid #6c757d;
+}
+
+.history-controls {
+    margin-bottom: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.history-controls button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+.btn-warning:hover {
+    background-color: #e0a800;
+}
+
+/* Стили для таблицы проверки отдельных адресов */
+#singleCheckResultsTable {
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+#singleCheckResultsTable td {
+    vertical-align: middle;
+    word-break: break-all;
+}
+
+#singleCheckResultsTable tr.status-valuable {
+    background-color: #d4edda;
+}
+
+#singleCheckResultsTable tr.status-used {
+    background-color: #fff3cd;
+}
+
+#singleCheckResultsTable tr.status-error {
+    background-color: #f8d7da;
+}
+
+/* Стили для поля ввода адреса */
+#singleAddressInput {
+    font-family: monospace;
 } 
