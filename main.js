@@ -76,54 +76,15 @@ class WalletFinder {
                 }
             });
         }
-    }
 
-    async runTests() {
-        console.log('Running tests...');
+        this.startBtn = document.getElementById('startBtn');
+        this.stopBtn = document.getElementById('stopBtn');
         
-        // Test wallet generation
-        this.testWalletGeneration();
-        
-        // Test API with different addresses
-        try {
-            console.log('Testing API connection...');
-            
-            // Тестовые адреса
-            const testAddresses = [
-                {
-                    address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',  // Bitcoin genesis address
-                    description: 'Genesis address'
-                },
-                {
-                    address: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo',  // Binance cold wallet
-                    description: 'Known wallet with balance'
-                }
-            ];
-
-            for (const test of testAddresses) {
-                console.log(`\nTesting ${test.description}: ${test.address}`);
-                const result = await this.api.checkAddress(test.address);
-                console.log('API test result:', JSON.stringify(result, null, 2));
-                
-                if (!result || result.error) {
-                    throw new Error(`Test failed for ${test.description}: ${result?.error || 'Invalid API response'}`);
-                }
-                
-                // Выводим детальную информацию
-                console.log(`Balance: ${result.balance} BTC`);
-                console.log(`Transactions: ${result.transactionCount}`);
-                console.log(`Has transactions: ${result.hasTransactions}`);
-                console.log(`Total received: ${result.totalReceived} BTC`);
-                console.log(`Total sent: ${result.totalSent} BTC`);
-            }
-            
-            console.log('\nAPI tests passed successfully');
-            return true;
-        } catch (error) {
-            console.error('API test failed:', error);
-            this.stats.errors++;
-            this.updateStats();
-            throw error;
+        if (this.startBtn) {
+            this.startBtn.addEventListener('click', () => this.start());
+        }
+        if (this.stopBtn) {
+            this.stopBtn.addEventListener('click', () => this.stop());
         }
     }
 
@@ -186,11 +147,6 @@ class WalletFinder {
 
             // Add auto-save on page unload
             window.addEventListener('beforeunload', () => this.saveState());
-            
-            // Add test button handler
-            if (this.testApiButton) {
-                this.testApiButton.addEventListener('click', () => this.runApiTest());
-            }
             
         } catch (error) {
             console.error('Error initializing UI:', error);
@@ -609,37 +565,6 @@ class WalletFinder {
         }
     }
 
-    testWalletGeneration() {
-        console.log('Testing wallet generation...');
-        
-        // Test with a known phrase
-        const testPhrase = 'test phrase';
-        console.log('Test phrase:', testPhrase);
-        
-        // Generate wallet
-        const walletData = this.wallet.generateWallet(testPhrase);
-        
-        // Log detailed results
-        console.log('Generated wallet data:');
-        console.log('Private Key:', walletData.privateKey);
-        console.log('Compressed:');
-        console.log('  Public Key:', walletData.compressed.publicKey);
-        console.log('  Address:', walletData.compressed.address);
-        console.log('Uncompressed:');
-        console.log('  Public Key:', walletData.uncompressed.publicKey);
-        console.log('  Address:', walletData.uncompressed.address);
-        
-        // Validate results
-        console.log('\nValidation:');
-        console.log('Private key length:', walletData.privateKey.length === 64 ? 'OK (64 chars)' : 'ERROR');
-        console.log('Compressed public key starts with:', walletData.compressed.publicKey.substring(0, 2));
-        console.log('Uncompressed public key starts with:', walletData.uncompressed.publicKey.substring(0, 2));
-        console.log('Compressed address starts with:', walletData.compressed.address[0]);
-        console.log('Uncompressed address starts with:', walletData.uncompressed.address[0]);
-        
-        return walletData;
-    }
-
     // Загрузка истории из localStorage
     loadHistoryFromStorage() {
         try {
@@ -684,93 +609,6 @@ class WalletFinder {
             `;
             
             this.historyList.appendChild(historyItem);
-        }
-    }
-
-    async runApiTest() {
-        if (!this.testApiButton) return;
-
-        try {
-            // Disable buttons and show loading state
-            this.testApiButton.disabled = true;
-            this.testApiButton.classList.add('testing');
-            this.testApiButton.textContent = 'Тестирование...';
-            this.startButton.disabled = true;
-            
-            // Clear previous results
-            const oldResults = document.querySelectorAll('.test-result');
-            oldResults.forEach(el => el.remove());
-
-            // Create results container
-            const resultsContainer = document.createElement('div');
-            resultsContainer.className = 'test-result';
-            this.testApiButton.parentNode.insertBefore(resultsContainer, this.testApiButton.nextSibling);
-
-            // Test addresses
-            const testAddresses = [
-                {
-                    address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
-                    description: 'Genesis address'
-                },
-                {
-                    address: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo',
-                    description: 'Known wallet with balance'
-                }
-            ];
-
-            // Run tests
-            for (const test of testAddresses) {
-                const resultElement = document.createElement('div');
-                resultElement.className = 'test-result';
-                resultsContainer.appendChild(resultElement);
-
-                try {
-                    resultElement.innerHTML = `<strong>Testing ${test.description}:</strong> ${test.address}`;
-                    
-                    const result = await this.api.checkAddress(test.address);
-                    console.log(`Test result for ${test.address}:`, result);
-
-                    if (result.error) {
-                        throw new Error(result.error);
-                    }
-
-                    // Add success details
-                    resultElement.classList.add('success');
-                    const details = document.createElement('div');
-                    details.className = 'test-details';
-                    details.innerHTML = `
-                        Balance: ${result.balance} BTC<br>
-                        Transactions: ${result.transactionCount}<br>
-                        Total Received: ${result.totalReceived} BTC<br>
-                        Total Sent: ${result.totalSent} BTC
-                    `;
-                    resultElement.appendChild(details);
-
-                } catch (error) {
-                    // Add error details
-                    resultElement.classList.add('error');
-                    const details = document.createElement('div');
-                    details.className = 'test-details';
-                    details.textContent = `Error: ${error.message}`;
-                    resultElement.appendChild(details);
-                }
-
-                // Add small delay between tests
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-
-        } catch (error) {
-            console.error('API test failed:', error);
-            const errorElement = document.createElement('div');
-            errorElement.className = 'test-result error';
-            errorElement.textContent = `Test failed: ${error.message}`;
-            this.testApiButton.parentNode.insertBefore(errorElement, this.testApiButton.nextSibling);
-        } finally {
-            // Restore button state
-            this.testApiButton.disabled = false;
-            this.testApiButton.classList.remove('testing');
-            this.testApiButton.textContent = 'Тест API';
-            this.startButton.disabled = false;
         }
     }
 

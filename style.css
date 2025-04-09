@@ -378,29 +378,12 @@ button:disabled {
     background-color: #138496;
 }
 
-/* Добавляем стили для результатов теста */
-.test-result {
-    margin: 10px 0;
-    padding: 10px;
-    border-radius: 5px;
-    background-color: #f8f9fa;
-    border-left: 4px solid #17a2b8;
-}
-
-.test-result.success {
-    border-left-color: #28a745;
-    background-color: #f0fff4;
-}
-
+/* Убираем неиспользуемые стили для тестов */
+.test-result,
+.test-details,
+.test-result.success,
 .test-result.error {
-    border-left-color: #dc3545;
-    background-color: #fff5f5;
-}
-
-.test-details {
-    margin-top: 5px;
-    font-size: 0.9em;
-    color: #666;
+    display: none;
 }
 
 /* Добавляем анимацию для кнопки во время теста */
