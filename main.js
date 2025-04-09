@@ -58,18 +58,40 @@ class WalletFinder {
         // Test wallet generation
         this.testWalletGeneration();
         
-        // Test API
+        // Test API with different addresses
         try {
             console.log('Testing API connection...');
-            const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Bitcoin genesis address
-            const result = await this.api.checkAddress(testAddress);
-            console.log('API test result:', result);
             
-            if (!result || result.error) {
-                throw new Error(result?.error || 'Invalid API response');
+            // Тестовые адреса
+            const testAddresses = [
+                {
+                    address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',  // Bitcoin genesis address
+                    description: 'Genesis address'
+                },
+                {
+                    address: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo',  // Binance cold wallet
+                    description: 'Known wallet with balance'
+                }
+            ];
+
+            for (const test of testAddresses) {
+                console.log(`\nTesting ${test.description}: ${test.address}`);
+                const result = await this.api.checkAddress(test.address);
+                console.log('API test result:', JSON.stringify(result, null, 2));
+                
+                if (!result || result.error) {
+                    throw new Error(`Test failed for ${test.description}: ${result?.error || 'Invalid API response'}`);
+                }
+                
+                // Выводим детальную информацию
+                console.log(`Balance: ${result.balance} BTC`);
+                console.log(`Transactions: ${result.transactionCount}`);
+                console.log(`Has transactions: ${result.hasTransactions}`);
+                console.log(`Total received: ${result.totalReceived} BTC`);
+                console.log(`Total sent: ${result.totalSent} BTC`);
             }
             
-            console.log('API test passed successfully');
+            console.log('\nAPI tests passed successfully');
             return true;
         } catch (error) {
             console.error('API test failed:', error);
