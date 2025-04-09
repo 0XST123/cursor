@@ -62,22 +62,19 @@ class BlockchairAPI {
                 for (const address of batch) {
                     const addressData = data.data?.[address];
                     
-                    // Если данных нет, считаем адрес новым (без транзакций)
-                    const result = {
-                        balance: 0,
-                        hasTransactions: false,
-                        transactionCount: 0,
-                        totalReceived: 0,
-                        totalSent: 0
-                    };
-
-                    if (addressData) {
-                        result.balance = Number(addressData.balance || 0) / 100000000;
-                        result.hasTransactions = Number(addressData.transaction_count || 0) > 0;
-                        result.transactionCount = Number(addressData.transaction_count || 0);
-                        result.totalReceived = Number(addressData.received || 0) / 100000000;
-                        result.totalSent = Number(addressData.spent || 0) / 100000000;
+                    if (!addressData) {
+                        console.warn(`No data returned for address: ${address}`);
+                        results.set(address, { error: 'No data returned from API' });
+                        continue;
                     }
+
+                    const result = {
+                        balance: Number(addressData.balance || 0) / 100000000,
+                        hasTransactions: Number(addressData.transaction_count || 0) > 0,
+                        transactionCount: Number(addressData.transaction_count || 0),
+                        totalReceived: Number(addressData.received || 0) / 100000000,
+                        totalSent: Number(addressData.spent || 0) / 100000000
+                    };
                     
                     console.log(`Processed result for ${address}:`, result);
                     results.set(address, result);
