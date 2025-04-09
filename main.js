@@ -108,6 +108,7 @@ class WalletFinder {
             const requiredElements = {
                 startButton: 'startBtn',
                 stopButton: 'stopBtn',
+                testApiButton: 'testApiBtn',
                 batchSizeInput: 'batchSize',
                 delayInput: 'delay',
                 progressBar: 'progressBar',
@@ -159,6 +160,11 @@ class WalletFinder {
 
             // Add auto-save on page unload
             window.addEventListener('beforeunload', () => this.saveState());
+            
+            // Add test button handler
+            if (this.testApiButton) {
+                this.testApiButton.addEventListener('click', () => this.runApiTest());
+            }
             
         } catch (error) {
             console.error('Error initializing UI:', error);
@@ -655,6 +661,93 @@ class WalletFinder {
             `;
             
             this.historyList.appendChild(historyItem);
+        }
+    }
+
+    async runApiTest() {
+        if (!this.testApiButton) return;
+
+        try {
+            // Disable buttons and show loading state
+            this.testApiButton.disabled = true;
+            this.testApiButton.classList.add('testing');
+            this.testApiButton.textContent = 'Тестирование...';
+            this.startButton.disabled = true;
+            
+            // Clear previous results
+            const oldResults = document.querySelectorAll('.test-result');
+            oldResults.forEach(el => el.remove());
+
+            // Create results container
+            const resultsContainer = document.createElement('div');
+            resultsContainer.className = 'test-result';
+            this.testApiButton.parentNode.insertBefore(resultsContainer, this.testApiButton.nextSibling);
+
+            // Test addresses
+            const testAddresses = [
+                {
+                    address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
+                    description: 'Genesis address'
+                },
+                {
+                    address: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo',
+                    description: 'Known wallet with balance'
+                }
+            ];
+
+            // Run tests
+            for (const test of testAddresses) {
+                const resultElement = document.createElement('div');
+                resultElement.className = 'test-result';
+                resultsContainer.appendChild(resultElement);
+
+                try {
+                    resultElement.innerHTML = `<strong>Testing ${test.description}:</strong> ${test.address}`;
+                    
+                    const result = await this.api.checkAddress(test.address);
+                    console.log(`Test result for ${test.address}:`, result);
+
+                    if (result.error) {
+                        throw new Error(result.error);
+                    }
+
+                    // Add success details
+                    resultElement.classList.add('success');
+                    const details = document.createElement('div');
+                    details.className = 'test-details';
+                    details.innerHTML = `
+                        Balance: ${result.balance} BTC<br>
+                        Transactions: ${result.transactionCount}<br>
+                        Total Received: ${result.totalReceived} BTC<br>
+                        Total Sent: ${result.totalSent} BTC
+                    `;
+                    resultElement.appendChild(details);
+
+                } catch (error) {
+                    // Add error details
+                    resultElement.classList.add('error');
+                    const details = document.createElement('div');
+                    details.className = 'test-details';
+                    details.textContent = `Error: ${error.message}`;
+                    resultElement.appendChild(details);
+                }
+
+                // Add small delay between tests
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+        } catch (error) {
+            console.error('API test failed:', error);
+            const errorElement = document.createElement('div');
+            errorElement.className = 'test-result error';
+            errorElement.textContent = `Test failed: ${error.message}`;
+            this.testApiButton.parentNode.insertBefore(errorElement, this.testApiButton.nextSibling);
+        } finally {
+            // Restore button state
+            this.testApiButton.disabled = false;
+            this.testApiButton.classList.remove('testing');
+            this.testApiButton.textContent = 'Тест API';
+            this.startButton.disabled = false;
         }
     }
 } 

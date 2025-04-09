@@ -336,12 +336,14 @@ button:disabled {
 }
 
 .btn {
-    padding: 8px 16px;
+    padding: 10px 20px;
     border: none;
-    border-radius: 4px;
-    font-weight: 500;
+    border-radius: 5px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    margin: 0 5px;
 }
 
 .btn:disabled {
@@ -349,22 +351,86 @@ button:disabled {
     cursor: not-allowed;
 }
 
-#startBtn {
-    background: #28a745;
+.btn-success {
+    background-color: #28a745;
     color: white;
 }
 
-#startBtn:hover:not(:disabled) {
-    background: #218838;
+.btn-success:hover:not(:disabled) {
+    background-color: #218838;
 }
 
-#stopBtn {
-    background: #dc3545;
+.btn-danger {
+    background-color: #dc3545;
     color: white;
 }
 
-#stopBtn:hover:not(:disabled) {
-    background: #c82333;
+.btn-danger:hover:not(:disabled) {
+    background-color: #c82333;
+}
+
+.btn-info {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.btn-info:hover:not(:disabled) {
+    background-color: #138496;
+}
+
+/* Добавляем стили для результатов теста */
+.test-result {
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    border-left: 4px solid #17a2b8;
+}
+
+.test-result.success {
+    border-left-color: #28a745;
+    background-color: #f0fff4;
+}
+
+.test-result.error {
+    border-left-color: #dc3545;
+    background-color: #fff5f5;
+}
+
+.test-details {
+    margin-top: 5px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+/* Добавляем анимацию для кнопки во время теста */
+.btn-info.testing {
+    position: relative;
+    pointer-events: none;
+}
+
+.btn-info.testing:after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    background: transparent;
+    border: 2px solid white;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: button-loading-spinner 1s linear infinite;
+}
+
+@keyframes button-loading-spinner {
+    from {
+        transform: translateY(-50%) rotate(0turn);
+    }
+    to {
+        transform: translateY(-50%) rotate(1turn);
+    }
 }
 
 .results-container {
