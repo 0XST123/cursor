@@ -38,13 +38,17 @@ class BlockchairAPI {
                 console.log('Rate limit check passed, proceeding with API call');
                 
                 // Format URL in v1.4 style for multiple addresses
-                const url = `${this.baseUrl}/dashboards/addresses`;
-                const params = new URLSearchParams({
-                    addresses: batch.join(','),
-                    key: this.apiKey,
-                    limit: '1',
-                    offset: '0'
+                const url = `${this.baseUrl}/addresses`;
+                const params = new URLSearchParams();
+                
+                // Add addresses one by one to handle special characters correctly
+                batch.forEach(address => {
+                    params.append('addresses[]', address);
                 });
+                
+                // Add other parameters
+                params.append('key', this.apiKey);
+                
                 const finalUrl = `${url}?${params.toString()}`;
                 
                 console.log('Making API request to:', finalUrl.replace(this.apiKey, '[REDACTED]'));
