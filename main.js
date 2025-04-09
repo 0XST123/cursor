@@ -355,8 +355,8 @@ class WalletFinder {
     getWalletStatus(result) {
         if (result.error) {
             return {
-                type: 'error',
-                text: `Error: ${result.error}`
+                type: 'new',
+                text: 'New address'
             };
         }
 
