@@ -35,54 +35,61 @@ class BlockchairAPI {
         for (const batch of batches) {
             try {
                 await this.waitForRateLimit();
+                console.log('Rate limit check passed, proceeding with API call');
                 
-                // Формируем URL в стиле версии 1.4
-                const url = `${this.baseUrl}/addresses/`;
+                // Format URL in v1.4 style for multiple addresses
+                const url = `${this.baseUrl}/dashboards/addresses`;
                 const params = new URLSearchParams({
                     addresses: batch.join(','),
                     key: this.apiKey,
-                    limit: 1,
-                    offset: 0,
-                    state: 'latest',
-                    transaction_details: false,
-                    omni: false
+                    limit: '1',
+                    offset: '0'
                 });
                 const finalUrl = `${url}?${params.toString()}`;
                 
+                console.log('Making API request to:', finalUrl.replace(this.apiKey, '[REDACTED]'));
+                console.log('Addresses in batch:', batch);
+                
                 const response = await fetch(finalUrl);
+                console.log('API Response Status:', response.status);
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
                 }
                 
                 const data = await response.json();
+                console.log('Raw API Response:', data);
                 
                 if (data.error) {
                     throw new Error(data.error);
                 }
 
-                // Обрабатываем данные для каждого адреса
+                // Process each address in the batch
                 for (const address of batch) {
-                    const addressData = data.data.find(item => item.address === address);
-                    if (!addressData) {
-                        results.set(address, {
+                    const addressData = data.data?.[address];
+                    
+                    if (!addressData || !addressData.address) {
+                        console.warn(`No data returned for address: ${address}`);
+                        const emptyResult = {
                             balance: 0,
                             hasTransactions: false,
                             transactionCount: 0,
                             totalReceived: 0,
                             totalSent: 0
-                        });
+                        };
+                        results.set(address, emptyResult);
                         continue;
                     }
-                    
-                    const result = {
-                        balance: Number(addressData.balance || 0) / 100000000,
-                        hasTransactions: Number(addressData.transaction_count || 0) > 0,
-                        transactionCount: Number(addressData.transaction_count || 0),
-                        totalReceived: Number(addressData.received || 0) / 100000000,
-                        totalSent: Number(addressData.spent || 0) / 100000000
-                    };
 
+                    const result = {
+                        balance: Number(addressData.address.balance || 0) / 100000000,
+                        hasTransactions: Number(addressData.address.transaction_count || 0) > 0,
+                        transactionCount: Number(addressData.address.transaction_count || 0),
+                        totalReceived: Number(addressData.address.received || 0) / 100000000,
+                        totalSent: Number(addressData.address.spent || 0) / 100000000
+                    };
+                    
+                    console.log(`Processed result for ${address}:`, result);
                     results.set(address, result);
                     this.cache.set(address, result);
                 }
