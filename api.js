@@ -32,9 +32,9 @@ class BlockchairAPI {
                 await this.waitForRateLimit();
                 console.log('Rate limit check passed, proceeding with API call');
                 
-                // Используем новый формат URL для множественных адресов
-                const addressList = batch.join(',');
-                const url = `${this.baseUrl}/addresses/${addressList}/full?key=${this.apiKey}`;
+                // Используем правильный формат URL для Blockchair API
+                const addressQueries = batch.map(addr => `address=${encodeURIComponent(addr)}`).join('&');
+                const url = `${this.baseUrl}/dashboards/addresses?${addressQueries}&key=${this.apiKey}`;
                 
                 console.log('Making API request to:', url.replace(this.apiKey, '[REDACTED]'));
                 console.log('Addresses in batch:', batch);
@@ -56,10 +56,8 @@ class BlockchairAPI {
                 // Process each address in the batch
                 for (const address of batch) {
                     try {
-                        // Проверяем различные пути к данным в ответе
-                        const addressData = data.data?.[address] || 
-                                          data.data?.addresses?.[address] ||
-                                          data.data?.find(item => item.address === address);
+                        // Получаем данные адреса из правильного пути в ответе
+                        const addressData = data.data?.[address];
                         
                         console.log(`Raw data for ${address}:`, addressData);
                         
@@ -69,7 +67,15 @@ class BlockchairAPI {
                             continue;
                         }
 
-                        const result = this.validateAndProcessAddressData(addressData);
+                        // Обрабатываем данные с учетом структуры ответа Blockchair
+                        const result = {
+                            balance: Number(addressData.address?.balance || 0) / 100000000,
+                            hasTransactions: Number(addressData.address?.transaction_count || 0) > 0,
+                            transactionCount: Number(addressData.address?.transaction_count || 0),
+                            totalReceived: Number(addressData.address?.received || 0) / 100000000,
+                            totalSent: Number(addressData.address?.spent || 0) / 100000000
+                        };
+                        
                         console.log(`Processed result for ${address}:`, result);
                         results.set(address, result);
                         this.cache.set(address, result);
