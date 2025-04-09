@@ -37,17 +37,16 @@ class BlockchairAPI {
                 await this.waitForRateLimit();
                 console.log('Rate limit check passed, proceeding with API call');
                 
-                // Format URL in v1.4 style for multiple addresses
-                const url = `${this.baseUrl}/addresses`;
+                // Format URL in v1.4 style for specific addresses
+                const url = `${this.baseUrl}/dashboards/address/${batch[0]}`;
                 const params = new URLSearchParams({
-                    addresses: batch.join(','),
                     key: this.apiKey
                 });
                 
                 const finalUrl = `${url}?${params.toString()}`;
                 
                 console.log('Making API request to:', finalUrl.replace(this.apiKey, '[REDACTED]'));
-                console.log('Addresses in batch:', batch);
+                console.log('Checking address:', batch[0]);
                 
                 const response = await fetch(finalUrl);
                 console.log('API Response Status:', response.status);
@@ -63,34 +62,30 @@ class BlockchairAPI {
                     throw new Error(data.error);
                 }
 
-                // Process each address in the batch
-                for (const address of batch) {
-                    const addressData = data.data?.[address];
-                    
-                    if (!addressData || !addressData.address) {
-                        console.warn(`No data returned for address: ${address}`);
-                        const emptyResult = {
-                            balance: 0,
-                            hasTransactions: false,
-                            transactionCount: 0,
-                            totalReceived: 0,
-                            totalSent: 0
-                        };
-                        results.set(address, emptyResult);
-                        continue;
-                    }
-
+                // Process the address
+                const addressData = data.data;
+                if (!addressData) {
+                    console.warn(`No data returned for address: ${batch[0]}`);
+                    const emptyResult = {
+                        balance: 0,
+                        hasTransactions: false,
+                        transactionCount: 0,
+                        totalReceived: 0,
+                        totalSent: 0
+                    };
+                    results.set(batch[0], emptyResult);
+                } else {
                     const result = {
-                        balance: Number(addressData.address.balance || 0) / 100000000,
-                        hasTransactions: Number(addressData.address.transaction_count || 0) > 0,
-                        transactionCount: Number(addressData.address.transaction_count || 0),
-                        totalReceived: Number(addressData.address.received || 0) / 100000000,
-                        totalSent: Number(addressData.address.spent || 0) / 100000000
+                        balance: Number(addressData.address?.balance || 0) / 100000000,
+                        hasTransactions: Number(addressData.address?.transaction_count || 0) > 0,
+                        transactionCount: Number(addressData.address?.transaction_count || 0),
+                        totalReceived: Number(addressData.address?.received || 0) / 100000000,
+                        totalSent: Number(addressData.address?.spent || 0) / 100000000
                     };
                     
-                    console.log(`Processed result for ${address}:`, result);
-                    results.set(address, result);
-                    this.cache.set(address, result);
+                    console.log(`Processed result for ${batch[0]}:`, result);
+                    results.set(batch[0], result);
+                    this.cache.set(batch[0], result);
                 }
                 
                 this.errorCount = 0;
