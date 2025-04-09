@@ -3,7 +3,14 @@ class WalletFinder {
         // Initialize components
         this.wallet = new BitcoinWallet();
         this.phraseGenerator = new PhraseGenerator();
-        this.api = new BlockchairAPI();
+        
+        try {
+            this.api = BitcoinAPIFactory.createAPI();
+            console.log('API initialized successfully');
+        } catch (error) {
+            console.error('Failed to initialize API:', error);
+            throw new Error('API initialization failed');
+        }
         
         // Batch settings
         this.batchSize = 100;
@@ -15,7 +22,8 @@ class WalletFinder {
             new: 0,
             used: 0,
             valuable: 0,
-            totalBtc: 0
+            totalBtc: 0,
+            errors: 0  // Добавляем счетчик ошибок в статистику
         };
         
         this.checkedWallets = 0;
@@ -52,11 +60,22 @@ class WalletFinder {
         
         // Test API
         try {
+            console.log('Testing API connection...');
             const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Bitcoin genesis address
-            const balance = await this.api.checkAddress(testAddress);
-            console.log('API test result:', { address: testAddress, balance: balance });
+            const result = await this.api.checkAddress(testAddress);
+            console.log('API test result:', result);
+            
+            if (!result || result.error) {
+                throw new Error(result?.error || 'Invalid API response');
+            }
+            
+            console.log('API test passed successfully');
+            return true;
         } catch (error) {
             console.error('API test failed:', error);
+            this.stats.errors++;
+            this.updateStats();
+            throw error;
         }
     }
 
@@ -301,54 +320,28 @@ class WalletFinder {
     }
 
     async start() {
-        if (this.isRunning) return;
-
         try {
+            console.log('Starting wallet finder...');
+            
+            // Проверяем API перед запуском
+            await this.runTests();
+            
+            if (this.isRunning) {
+                console.log('Already running');
+                return;
+            }
+            
             this.isRunning = true;
+            this.startTime = Date.now();
+            this.startButton.disabled = true;
+            this.stopButton.disabled = false;
             
-            // Генерируем новый батч если нет текущего или он уже обработан
-            if (this.currentBatch.length === 0 || this.lastProcessedIndex >= this.currentBatch.length) {
-                this.currentBatch = [];
-                for (let i = 0; i < this.batchSize; i++) {
-                    const phrase = this.phraseGenerator.generatePhrase();
-                    const wallet = this.wallet.generateWallet(phrase);
-                    this.currentBatch.push({
-                        phrase,
-                        ...wallet
-                    });
-                }
-                this.lastProcessedIndex = 0;
-                this.processedCount = 0;
-            }
-            
-            // Обновляем время паузы при возобновлении
-            if (this.pauseTime) {
-                this.totalPauseTime += Date.now() - this.pauseTime;
-                this.pauseTime = null;
-            }
-            
-            // Инициализируем время старта, если это первый запуск
-            if (!this.startTime) {
-                this.startTime = Date.now();
-                this.totalPauseTime = 0;
-            }
-            
-            // Обновляем состояние кнопок
-            if (this.startButton) {
-                this.startButton.disabled = true;
-            }
-            if (this.stopButton) {
-                this.stopButton.disabled = false;
-            }
-
-            // Основной цикл обработки
-            await this.processNextBatch();
+            console.log('Initialization complete, starting main process');
+            this.processBatch();
         } catch (error) {
-            console.error('Error in start:', error);
-            if (error.message !== 'API limit reached' && error.message !== 'API request timeout') {
-                alert(`Critical error: ${error.message}`);
-            }
+            console.error('Failed to start:', error);
             this.stop();
+            alert('Failed to start: ' + error.message);
         }
     }
 
@@ -419,10 +412,14 @@ class WalletFinder {
         this.saveHistoryToStorage();
     }
 
-    async processNextBatch() {
-        if (!this.isRunning) return;
+    async processBatch() {
+        if (!this.isRunning) {
+            console.log('Process stopped');
+            return;
+        }
 
         try {
+            console.log('Processing batch...');
             // Если текущий батч закончился или его нет, генерируем новый
             if (this.lastProcessedIndex >= this.currentBatch.length) {
                 this.currentBatch = [];
@@ -509,18 +506,24 @@ class WalletFinder {
             this.saveState();
             
             if (this.isRunning) {
-                setTimeout(() => this.processNextBatch(), this.delay);
+                setTimeout(() => this.processBatch(), this.delay);
             }
         } catch (error) {
             console.error('Error processing batch:', error);
             this.errorCount++;
             
-            if (this.errorCount >= this.maxConsecutiveErrors) {
-                console.warn('Too many consecutive errors, stopping...');
+            // Если слишком много ошибок подряд, останавливаем процесс
+            this.consecutiveErrors++;
+            if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
+                console.error('Too many consecutive errors, stopping...');
                 this.stop();
-            } else {
-                setTimeout(() => this.processNextBatch(), this.delay * 2);
+                alert('Stopped due to multiple errors. Please check console for details.');
+                return;
             }
+            
+            // Делаем паузу перед следующей попыткой
+            await new Promise(resolve => setTimeout(resolve, this.delay * 2));
+            this.processBatch();
         }
     }
 
