@@ -3,11 +3,11 @@ class BlockchairAPI {
     constructor() {
         this.apiKey = 'A___XlvcUCcOjwiFTR2rRKASglriL77n';
         this.baseUrl = 'https://api.blockchair.com/bitcoin';
-        this.maxAddressesPerRequest = 10; // Уменьшаем размер пакета до 10
+        this.maxAddressesPerRequest = 5; // Уменьшаем размер пакета до 5
         this.requestLimit = 30;
         this.requestCount = 0;
         this.lastRequestTime = 0;
-        this.minDelay = 1000;
+        this.minDelay = 2000; // Увеличиваем минимальную задержку
         this.errorCount = 0;
         this.maxErrors = 5;
         this.cache = new Map();
@@ -21,7 +21,7 @@ class BlockchairAPI {
         console.log('Checking addresses:', addresses);
         const results = new Map();
         
-        // Группируем адреса по 10 штук
+        // Группируем адреса по 5 штук
         const batches = [];
         for (let i = 0; i < addresses.length; i += this.maxAddressesPerRequest) {
             batches.push(addresses.slice(i, i + this.maxAddressesPerRequest));
@@ -32,19 +32,14 @@ class BlockchairAPI {
                 await this.waitForRateLimit();
                 console.log('Rate limit check passed, proceeding with API call');
                 
-                // Format URL in v1.4 style for multiple addresses
-                const url = `${this.baseUrl}/addresses`;
-                const params = new URLSearchParams({
-                    addresses: batch.join(','),
-                    key: this.apiKey
-                });
+                // Формируем URL для каждого адреса отдельно
+                const addressQueries = batch.map(addr => `address=${encodeURIComponent(addr)}`).join('&');
+                const url = `${this.baseUrl}/dashboards/addresses?${addressQueries}&key=${this.apiKey}`;
                 
-                const finalUrl = `${url}?${params.toString()}`;
-                
-                console.log('Making API request to:', finalUrl.replace(this.apiKey, '[REDACTED]'));
+                console.log('Making API request to:', url.replace(this.apiKey, '[REDACTED]'));
                 console.log('Addresses in batch:', batch);
                 
-                const response = await fetch(finalUrl);
+                const response = await fetch(url);
                 console.log('API Response Status:', response.status);
                 
                 if (!response.ok) {
@@ -69,11 +64,11 @@ class BlockchairAPI {
                     }
 
                     const result = {
-                        balance: Number(addressData.balance || 0) / 100000000,
-                        hasTransactions: Number(addressData.transaction_count || 0) > 0,
-                        transactionCount: Number(addressData.transaction_count || 0),
-                        totalReceived: Number(addressData.received || 0) / 100000000,
-                        totalSent: Number(addressData.spent || 0) / 100000000
+                        balance: Number(addressData.address?.balance || 0) / 100000000,
+                        hasTransactions: Number(addressData.address?.transaction_count || 0) > 0,
+                        transactionCount: Number(addressData.address?.transaction_count || 0),
+                        totalReceived: Number(addressData.address?.received || 0) / 100000000,
+                        totalSent: Number(addressData.address?.spent || 0) / 100000000
                     };
                     
                     console.log(`Processed result for ${address}:`, result);
@@ -82,6 +77,10 @@ class BlockchairAPI {
                 }
                 
                 this.errorCount = 0;
+                
+                // Добавляем задержку между запросами в батче
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
             } catch (error) {
                 console.error('Error in batch request:', error);
                 this.errorCount++;
