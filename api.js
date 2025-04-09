@@ -39,15 +39,10 @@ class BlockchairAPI {
                 
                 // Format URL in v1.4 style for multiple addresses
                 const url = `${this.baseUrl}/addresses`;
-                const params = new URLSearchParams();
-                
-                // Add addresses one by one to handle special characters correctly
-                batch.forEach(address => {
-                    params.append('addresses[]', address);
+                const params = new URLSearchParams({
+                    addresses: batch.join(','),
+                    key: this.apiKey
                 });
-                
-                // Add other parameters
-                params.append('key', this.apiKey);
                 
                 const finalUrl = `${url}?${params.toString()}`;
                 
