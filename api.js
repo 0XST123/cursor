@@ -32,9 +32,9 @@ class BlockchairAPI {
                 await this.waitForRateLimit();
                 console.log('Rate limit check passed, proceeding with API call');
                 
-                // Формируем URL для каждого адреса отдельно
-                const addressQueries = batch.map(addr => `address=${encodeURIComponent(addr)}`).join('&');
-                const url = `${this.baseUrl}/dashboards/addresses?${addressQueries}&key=${this.apiKey}`;
+                // Используем новый формат URL для множественных адресов
+                const addressList = batch.join(',');
+                const url = `${this.baseUrl}/addresses/${addressList}/full?key=${this.apiKey}`;
                 
                 console.log('Making API request to:', url.replace(this.apiKey, '[REDACTED]'));
                 console.log('Addresses in batch:', batch);
@@ -47,7 +47,7 @@ class BlockchairAPI {
                 }
                 
                 const data = await response.json();
-                console.log('Raw API Response:', data);
+                console.log('Raw API Response:', JSON.stringify(data, null, 2));
                 
                 if (data.error) {
                     throw new Error(data.error);
@@ -55,56 +55,61 @@ class BlockchairAPI {
 
                 // Process each address in the batch
                 for (const address of batch) {
-                    const addressData = data.data?.[address];
-                    
-                    if (!addressData) {
-                        console.warn(`No data returned for address: ${address}`);
-                        results.set(address, { error: 'No data returned from API' });
-                        continue;
-                    }
+                    try {
+                        // Проверяем различные пути к данным в ответе
+                        const addressData = data.data?.[address] || 
+                                          data.data?.addresses?.[address] ||
+                                          data.data?.find(item => item.address === address);
+                        
+                        console.log(`Raw data for ${address}:`, addressData);
+                        
+                        if (!addressData) {
+                            console.warn(`No data returned for address: ${address}`);
+                            results.set(address, { error: 'No data returned from API' });
+                            continue;
+                        }
 
-                    const result = {
-                        balance: Number(addressData.address?.balance || 0) / 100000000,
-                        hasTransactions: Number(addressData.address?.transaction_count || 0) > 0,
-                        transactionCount: Number(addressData.address?.transaction_count || 0),
-                        totalReceived: Number(addressData.address?.received || 0) / 100000000,
-                        totalSent: Number(addressData.address?.spent || 0) / 100000000
-                    };
-                    
-                    console.log(`Processed result for ${address}:`, result);
-                    results.set(address, result);
-                    this.cache.set(address, result);
+                        const result = this.validateAndProcessAddressData(addressData);
+                        console.log(`Processed result for ${address}:`, result);
+                        results.set(address, result);
+                        this.cache.set(address, result);
+                    } catch (addressError) {
+                        console.error(`Error processing address ${address}:`, addressError);
+                        results.set(address, { error: addressError.message });
+                    }
                 }
                 
                 this.errorCount = 0;
-                
-                // Добавляем задержку между запросами в батче
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 
             } catch (error) {
                 console.error('Error in batch request:', error);
                 this.errorCount++;
                 
-                // Если слишком много ошибок, делаем длительную паузу
                 if (this.errorCount >= this.maxErrors) {
+                    console.log('Too many errors, taking a longer break...');
                     await new Promise(resolve => setTimeout(resolve, 30000));
                     this.errorCount = 0;
                 }
                 
-                // Помечаем все адреса в батче как ошибочные
                 for (const address of batch) {
                     results.set(address, { error: error.message });
                 }
             }
         }
         
-        // Возвращаем результаты для всех запрошенных адресов
         return addresses.map(addr => results.get(addr) || { error: 'Unknown error' });
     }
 
     validateAndProcessAddressData(data) {
         try {
-            if (!data || !data.address) {
+            console.log('Validating data:', data);
+            
+            // Проверяем различные форматы данных
+            const addressInfo = data.address || data;
+            
+            if (!addressInfo) {
+                console.warn('No address info found in data');
                 return {
                     balance: 0,
                     hasTransactions: false,
@@ -114,12 +119,20 @@ class BlockchairAPI {
                 };
             }
 
+            // Извлекаем значения, проверяя различные пути к данным
+            const balance = Number(addressInfo.balance || addressInfo.final_balance || 0);
+            const txCount = Number(addressInfo.transaction_count || addressInfo.n_tx || 0);
+            const received = Number(addressInfo.received || addressInfo.total_received || 0);
+            const spent = Number(addressInfo.spent || addressInfo.total_sent || 0);
+
+            console.log('Extracted values:', { balance, txCount, received, spent });
+
             return {
-                balance: data.address.balance / 100000000,
-                hasTransactions: data.address.transaction_count > 0,
-                transactionCount: data.address.transaction_count,
-                totalReceived: data.address.received / 100000000,
-                totalSent: data.address.spent / 100000000
+                balance: balance / 100000000,
+                hasTransactions: txCount > 0,
+                transactionCount: txCount,
+                totalReceived: received / 100000000,
+                totalSent: spent / 100000000
             };
         } catch (error) {
             console.error('Data validation error:', error);
