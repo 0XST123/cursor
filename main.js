@@ -345,54 +345,78 @@ class WalletFinder {
         }
     }
 
+    addResultToTable(walletData, checkResult, index) {
+        if (!this.resultsBody) return;
+
+        try {
+            console.log('Adding result to table:', { walletData, checkResult, index });
+            
+            // Очищаем таблицу если количество строк превышает 20
+            if (this.resultsBody.children.length >= 20) {
+                this.resultsBody.innerHTML = '';
+            }
+
+            const row = document.createElement('tr');
+            
+            // Добавляем данные в строку с проверкой на undefined
+            row.innerHTML = `
+                <td>${this.processedCount + 1}</td>
+                <td>${walletData.compressed?.address || 'N/A'}</td>
+                <td>${walletData.uncompressed?.address || 'N/A'}</td>
+                <td>${walletData.privateKey || 'N/A'}</td>
+                <td>${walletData.phrase || 'N/A'}</td>
+                <td class="status-${checkResult.status?.type || 'new'}">${checkResult.status?.text || 'New address'}</td>
+            `;
+
+            // Добавляем строку в начало таблицы
+            if (this.resultsBody.firstChild) {
+                this.resultsBody.insertBefore(row, this.resultsBody.firstChild);
+            } else {
+                this.resultsBody.appendChild(row);
+            }
+            
+            console.log('Row added successfully');
+        } catch (error) {
+            console.error('Error adding result to table:', error);
+        }
+    }
+
     getWalletStatus(result) {
-        if (result.error) {
+        try {
+            console.log('Getting wallet status for result:', result);
+            
+            if (result.error) {
+                return {
+                    type: 'error',
+                    text: `Error: ${result.error}`
+                };
+            }
+
+            if (result.balance > 0) {
+                return {
+                    type: 'valuable',
+                    text: `Balance: ${result.balance.toFixed(8)} BTC`
+                };
+            }
+
+            if (result.hasTransactions) {
+                return {
+                    type: 'used',
+                    text: `Used (${result.transactionCount} tx)`
+                };
+            }
+
             return {
                 type: 'new',
                 text: 'New address'
             };
-        }
-
-        if (result.balance > 0) {
+        } catch (error) {
+            console.error('Error getting wallet status:', error);
             return {
-                type: 'valuable',
-                text: `Balance: ${result.balance.toFixed(8)} BTC`
+                type: 'error',
+                text: 'Error processing status'
             };
         }
-
-        if (result.hasTransactions) {
-            return {
-                type: 'used',
-                text: `Used (${result.transactionCount} tx)`
-            };
-        }
-
-        return {
-            type: 'new',
-            text: 'New address'
-        };
-    }
-
-    addResultToTable(walletData, checkResult, index) {
-        if (!this.resultsBody) return;
-
-        // Очищаем таблицу если количество строк превышает 20
-        if (this.resultsBody.children.length >= 20) {
-            this.resultsBody.innerHTML = '';
-        }
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${this.processedCount + 1}</td>
-            <td>${walletData.compressed.address}</td>
-            <td>${walletData.uncompressed.address}</td>
-            <td>${walletData.privateKey}</td>
-            <td>${walletData.phrase}</td>
-            <td class="status-${checkResult.status.type}">${checkResult.status.text}</td>
-        `;
-
-        // Добавляем строку в таблицу
-        this.resultsBody.appendChild(row);
     }
 
     addToHistory(data) {
@@ -432,88 +456,77 @@ class WalletFinder {
                     });
                 }
                 this.lastProcessedIndex = 0;
+                this.processedCount = 0;
             }
 
-            const currentBatchSlice = this.currentBatch.slice(this.lastProcessedIndex, this.lastProcessedIndex + this.batchSize);
-            
-            // Collect addresses to check
-            const addressesToCheck = currentBatchSlice.reduce((acc, wallet) => {
-                acc.push(wallet.compressed.address);
-                acc.push(wallet.uncompressed.address);
-                return acc;
-            }, []);
+            // Берем текущий кошелек
+            const wallet = this.currentBatch[this.lastProcessedIndex];
+            console.log('Processing wallet:', wallet);
 
-            const results = await this.api.checkAddressesBatch(addressesToCheck);
-            this.errorCount = 0; // Reset error count on successful API call
-            this.apiRequestCount++; // Увеличиваем счетчик успешных API запросов
+            // Проверяем оба адреса
+            const compressedResult = await this.api.checkAddress(wallet.compressed.address);
+            const uncompressedResult = await this.api.checkAddress(wallet.uncompressed.address);
             
-            // Обрабатываем результаты
-            for (let i = 0; i < currentBatchSlice.length; i++) {
-                if (!this.isRunning) return;
-                
-                const wallet = currentBatchSlice[i];
-                const compressedResult = results[i * 2];
-                const uncompressedResult = results[i * 2 + 1];
-                
-                // Проверяем результаты
-                const compressedStatus = this.getWalletStatus(compressedResult || { error: 'No data' });
-                const uncompressedStatus = this.getWalletStatus(uncompressedResult || { error: 'No data' });
-                
-                // Определяем общий статус кошелька
-                const walletStatus = {
-                    type: compressedStatus.type === 'valuable' || uncompressedStatus.type === 'valuable' ? 'valuable' :
-                          compressedStatus.type === 'used' || uncompressedStatus.type === 'used' ? 'used' :
-                          compressedStatus.type === 'error' && uncompressedStatus.type === 'error' ? 'error' : 'new',
-                    text: compressedStatus.type === 'valuable' ? compressedStatus.text :
-                          uncompressedStatus.type === 'valuable' ? uncompressedStatus.text :
-                          compressedStatus.type === 'used' ? compressedStatus.text :
-                          uncompressedStatus.type === 'used' ? uncompressedStatus.text :
-                          compressedStatus.type === 'error' && uncompressedStatus.type === 'error' ? 'Error checking addresses' :
-                          'New address'
-                };
+            console.log('API results:', { compressed: compressedResult, uncompressed: uncompressedResult });
 
-                // Добавляем результат в таблицу
-                this.addResultToTable(wallet, { status: walletStatus }, i);
-                
-                // Добавляем в историю если есть что-то интересное
-                if (walletStatus.type !== 'new') {
-                    this.addToHistory({
-                        batchNumber: Math.floor(this.lastProcessedIndex / this.batchSize) + 1,
-                        compressed: {
-                            address: wallet.compressed.address,
-                            status: compressedStatus
-                        },
-                        uncompressed: {
-                            address: wallet.uncompressed.address,
-                            status: uncompressedStatus
-                        },
-                        privateKey: wallet.privateKey,
-                        sourcePhrase: wallet.phrase,
-                        balance: (compressedResult?.balance || 0) + (uncompressedResult?.balance || 0),
-                        timestamp: Date.now()
-                    });
-                }
-                
-                // Обновляем статистику
-                this.updateStatsForWallet(compressedStatus, uncompressedStatus, compressedResult, uncompressedResult);
-                
-                this.processedCount++;
-                this.updateProgress();
-                this.updateStats();
+            // Получаем статусы
+            const compressedStatus = this.getWalletStatus(compressedResult);
+            const uncompressedStatus = this.getWalletStatus(uncompressedResult);
+
+            // Определяем общий статус кошелька
+            const walletStatus = {
+                type: compressedStatus.type === 'valuable' || uncompressedStatus.type === 'valuable' ? 'valuable' :
+                      compressedStatus.type === 'used' || uncompressedStatus.type === 'used' ? 'used' :
+                      'new',
+                text: compressedStatus.type === 'valuable' ? compressedStatus.text :
+                      uncompressedStatus.type === 'valuable' ? uncompressedStatus.text :
+                      compressedStatus.type === 'used' ? compressedStatus.text :
+                      uncompressedStatus.type === 'used' ? uncompressedStatus.text :
+                      'New address'
+            };
+
+            // Добавляем результат в таблицу
+            this.addResultToTable(wallet, { status: walletStatus });
+            
+            // Обновляем статистику
+            this.updateStatsForWallet(compressedStatus, uncompressedStatus, compressedResult, uncompressedResult);
+            
+            // Если нашли что-то интересное, добавляем в историю
+            if (walletStatus.type !== 'new') {
+                this.addToHistory({
+                    batchNumber: Math.floor(this.lastProcessedIndex / this.batchSize) + 1,
+                    compressed: {
+                        address: wallet.compressed.address,
+                        status: compressedStatus
+                    },
+                    uncompressed: {
+                        address: wallet.uncompressed.address,
+                        status: uncompressedStatus
+                    },
+                    privateKey: wallet.privateKey,
+                    sourcePhrase: wallet.phrase,
+                    balance: (compressedResult?.balance || 0) + (uncompressedResult?.balance || 0),
+                    timestamp: Date.now()
+                });
             }
 
-            this.lastProcessedIndex += currentBatchSlice.length;
-            this.saveState();
+            // Обновляем счетчики
+            this.lastProcessedIndex++;
+            this.processedCount++;
+            this.apiRequestCount += 2; // Увеличиваем на 2, так как проверили 2 адреса
             
+            // Обновляем прогресс
+            this.updateProgress();
+            this.updateStats();
+
+            // Планируем следующую итерацию
             if (this.isRunning) {
                 setTimeout(() => this.processBatch(), this.delay);
             }
         } catch (error) {
-            console.error('Error processing batch:', error);
-            this.errorCount++;
-            
-            // Если слишком много ошибок подряд, останавливаем процесс
+            console.error('Error in processBatch:', error);
             this.consecutiveErrors++;
+            
             if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
                 console.error('Too many consecutive errors, stopping...');
                 this.stop();
