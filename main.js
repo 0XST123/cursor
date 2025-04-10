@@ -394,10 +394,9 @@ class WalletFinder {
             row.innerHTML = `
                 <td>${this.processedCount + 1}</td>
                 <td>${walletData.compressed?.address || 'N/A'}</td>
-                <td>${checkResult.txs || '0'}</td>
-                <td>${checkResult.balance ? checkResult.balance + ' BTC' : '0 BTC'}</td>
-                <td>${checkResult.received ? checkResult.received + ' BTC' : '0 BTC'}</td>
-                <td>${checkResult.sent ? checkResult.sent + ' BTC' : '0 BTC'}</td>
+                <td>${walletData.uncompressed?.address || 'N/A'}</td>
+                <td>${walletData.privateKey || 'N/A'}</td>
+                <td>${walletData.phrase || 'N/A'}</td>
                 <td class="status-${checkResult.status?.type || 'new'}">${checkResult.status?.text || 'New address'}</td>
             `;
 
