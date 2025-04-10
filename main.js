@@ -466,102 +466,111 @@ class WalletFinder {
                 this.processedCount = 0;
             }
 
-            // Берем текущий кошелек
-            const wallet = this.currentBatch[this.lastProcessedIndex];
-            console.log('Processing wallet:', wallet);
+            // Собираем все адреса для проверки
+            const compressedAddresses = this.currentBatch.map(w => w.compressed.address);
+            const uncompressedAddresses = this.currentBatch.map(w => w.uncompressed.address);
 
-            // Проверяем оба адреса
-            const compressedResult = await this.api.checkAddress(wallet.compressed.address);
-            const uncompressedResult = await this.api.checkAddress(wallet.uncompressed.address);
+            // Проверяем балансы пакетами по 100 адресов
+            console.log('Checking compressed addresses batch');
+            const compressedResults = await this.api.checkAddressesBalances(compressedAddresses);
             
-            console.log('API results:', { compressed: compressedResult, uncompressed: uncompressedResult });
+            console.log('Checking uncompressed addresses batch');
+            const uncompressedResults = await this.api.checkAddressesBalances(uncompressedAddresses);
 
-            // Получаем статусы
-            const compressedStatus = this.getWalletStatus(compressedResult);
-            const uncompressedStatus = this.getWalletStatus(uncompressedResult);
+            // Обрабатываем результаты для каждого кошелька
+            for (let i = 0; i < this.currentBatch.length; i++) {
+                const wallet = this.currentBatch[i];
+                
+                const compressedResult = compressedResults[wallet.compressed.address] || { balance: 0, hasBalance: false };
+                const uncompressedResult = uncompressedResults[wallet.uncompressed.address] || { balance: 0, hasBalance: false };
 
-            // Определяем общий статус кошелька
-            const walletStatus = {
-                type: compressedStatus.type === 'valuable' || uncompressedStatus.type === 'valuable' ? 'valuable' :
-                      compressedStatus.type === 'used' || uncompressedStatus.type === 'used' ? 'used' :
-                      'new',
-                text: compressedStatus.type === 'valuable' ? compressedStatus.text :
-                      uncompressedStatus.type === 'valuable' ? uncompressedStatus.text :
-                      compressedStatus.type === 'used' ? compressedStatus.text :
-                      uncompressedStatus.type === 'used' ? uncompressedStatus.text :
-                      'New address'
-            };
+                // Определяем статусы на основе балансов
+                const compressedStatus = this.getWalletStatus(compressedResult);
+                const uncompressedStatus = this.getWalletStatus(uncompressedResult);
 
-            // Добавляем результат в таблицу
-            this.addResultToTable(wallet, { status: walletStatus });
-            
-            // Обновляем статистику
-            this.updateStatsForWallet(compressedStatus, uncompressedStatus, compressedResult, uncompressedResult);
-            
-            // Если нашли что-то интересное, добавляем в историю
-            if (walletStatus.type !== 'new') {
-                this.addToHistory({
-                    batchNumber: Math.floor(this.lastProcessedIndex / this.batchSize) + 1,
-                    compressed: {
-                        address: wallet.compressed.address,
-                        status: compressedStatus
-                    },
-                    uncompressed: {
-                        address: wallet.uncompressed.address,
-                        status: uncompressedStatus
-                    },
-                    privateKey: wallet.privateKey,
-                    sourcePhrase: wallet.phrase,
-                    balance: (compressedResult?.balance || 0) + (uncompressedResult?.balance || 0),
-                    timestamp: Date.now()
-                });
+                // Если найден баланс > 0, делаем детальную проверку
+                if (compressedResult.hasBalance || uncompressedResult.hasBalance) {
+                    console.log('Found wallet with balance, checking details');
+                    
+                    if (compressedResult.hasBalance) {
+                        const details = await this.api.checkAddressDetails(wallet.compressed.address);
+                        compressedResult.transactionCount = details.transactionCount;
+                        compressedResult.totalReceived = details.totalReceived;
+                        compressedResult.totalSent = details.totalSent;
+                    }
+                    
+                    if (uncompressedResult.hasBalance) {
+                        const details = await this.api.checkAddressDetails(wallet.uncompressed.address);
+                        uncompressedResult.transactionCount = details.transactionCount;
+                        uncompressedResult.totalReceived = details.totalReceived;
+                        uncompressedResult.totalSent = details.totalSent;
+                    }
+
+                    // Добавляем в историю только если есть баланс
+                    this.addToHistory({
+                        ...wallet,
+                        compressed: { ...wallet.compressed, ...compressedResult },
+                        uncompressed: { ...wallet.uncompressed, ...uncompressedResult }
+                    });
+                }
+
+                // Определяем общий статус кошелька
+                const walletStatus = {
+                    type: compressedStatus.type === 'valuable' || uncompressedStatus.type === 'valuable' ? 'valuable' :
+                          compressedStatus.type === 'used' || uncompressedStatus.type === 'used' ? 'used' : 
+                          'new',
+                    text: compressedStatus.type === 'valuable' ? `Balance: ${compressedResult.balance.toFixed(8)} BTC` :
+                          uncompressedStatus.type === 'valuable' ? `Balance: ${uncompressedResult.balance.toFixed(8)} BTC` :
+                          'New address'
+                };
+
+                // Добавляем результат в таблицу
+                this.addResultToTable(wallet, { status: walletStatus });
+                
+                // Обновляем статистику
+                this.updateStatsForWallet(compressedStatus, uncompressedStatus, compressedResult, uncompressedResult);
+                
+                this.processedCount++;
+                this.lastProcessedIndex = i;
+                this.updateProgress();
             }
 
-            // Обновляем счетчики
-            this.lastProcessedIndex++;
-            this.processedCount++;
-            this.apiRequestCount += 2; // Увеличиваем на 2, так как проверили 2 адреса
-            
-            // Обновляем прогресс
-            this.updateProgress();
-            this.updateStats();
-
-            // Планируем следующую итерацию
+            // Планируем следующий батч
             if (this.isRunning) {
                 setTimeout(() => this.processBatch(), this.delay);
             }
+
         } catch (error) {
-            console.error('Error in processBatch:', error);
-            this.consecutiveErrors++;
+            console.error('Error processing batch:', error);
+            this.errorCount++;
             
-            if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
-                console.error('Too many consecutive errors, stopping...');
+            if (this.errorCount >= this.maxConsecutiveErrors) {
+                console.error('Too many consecutive errors, stopping');
                 this.stop();
-                alert('Stopped due to multiple errors. Please check console for details.');
-                return;
+                alert('Stopped due to too many errors. Please check the console for details.');
+            } else {
+                // Повторяем попытку через delay мс
+                setTimeout(() => this.processBatch(), this.delay);
             }
-            
-            // Делаем паузу перед следующей попыткой
-            await new Promise(resolve => setTimeout(resolve, this.delay * 2));
-            this.processBatch();
         }
     }
 
     updateStatsForWallet(compressedStatus, uncompressedStatus, compressedResult, uncompressedResult) {
-        // Обновляем статистику по сжатому адресу
-        if (compressedStatus.type === 'new') this.stats.new++;
-        if (compressedStatus.type === 'used') this.stats.used++;
-        if (compressedStatus.type === 'valuable') {
-            this.stats.valuable++;
-            this.totalBtcFound += compressedResult.balance || 0;
-        }
+        try {
+            // Обновляем счетчик API запросов
+            this.apiRequestCount++;
 
-        // Обновляем статистику по несжатому адресу
-        if (uncompressedStatus.type === 'new') this.stats.new++;
-        if (uncompressedStatus.type === 'used') this.stats.used++;
-        if (uncompressedStatus.type === 'valuable') {
-            this.stats.valuable++;
-            this.totalBtcFound += uncompressedResult.balance || 0;
+            // Обновляем статистику на основе результатов
+            if (compressedResult.balance > 0 || uncompressedResult.balance > 0) {
+                this.stats.valuable++;
+                this.stats.totalBtc += (compressedResult.balance || 0) + (uncompressedResult.balance || 0);
+            } else {
+                this.stats.new++;
+            }
+
+            this.updateStats();
+        } catch (error) {
+            console.error('Error updating stats:', error);
         }
     }
 
@@ -639,57 +648,67 @@ class WalletFinder {
     }
 
     async checkSingleAddress() {
-        if (!this.singleAddressInput || !this.singleCheckResultsBody) return;
-        
-        const address = this.singleAddressInput.value.trim();
-        if (!address) {
-            alert('Пожалуйста, введите адрес');
-            return;
-        }
-
         try {
-            // Отключаем кнопку и показываем загрузку
-            this.checkSingleAddressBtn.disabled = true;
-            this.checkSingleAddressBtn.textContent = 'Проверка...';
+            const address = this.singleAddressInput.value.trim();
             
-            // Запрашиваем данные
-            const result = await this.api.checkAddress(address);
-            
-            // Создаем новую строку
-            const row = document.createElement('tr');
-            const status = this.getWalletStatus(result);
-            
-            // Добавляем класс статуса к строке
-            row.classList.add(`status-${status.type}`);
-            
-            // Заполняем данные
-            row.innerHTML = `
-                <td>${this.singleCheckResultsBody.children.length + 1}</td>
-                <td>${address}</td>
-                <td>${result.balance?.toFixed(8) || '0.00000000'} BTC</td>
-                <td>${result.transactionCount || 0}</td>
-                <td>${result.totalReceived?.toFixed(8) || '0.00000000'} BTC</td>
-                <td>${result.totalSent?.toFixed(8) || '0.00000000'} BTC</td>
-                <td>${status.text}</td>
-            `;
-            
-            // Добавляем строку в начало таблицы
-            if (this.singleCheckResultsBody.firstChild) {
-                this.singleCheckResultsBody.insertBefore(row, this.singleCheckResultsBody.firstChild);
-            } else {
-                this.singleCheckResultsBody.appendChild(row);
+            if (!address) {
+                alert('Please enter a Bitcoin address');
+                return;
             }
+
+            // Disable input and button while checking
+            this.singleAddressInput.disabled = true;
+            this.checkSingleAddressBtn.disabled = true;
             
-            // Очищаем поле ввода
-            this.singleAddressInput.value = '';
+            console.log('Checking single address:', address);
             
+            // Get detailed information about the address
+            const result = await this.api.checkAddressDetails(address);
+            
+            if (result.error) {
+                throw new Error(result.error);
+            }
+
+            // Clear previous results
+            if (this.singleCheckResultsBody) {
+                this.singleCheckResultsBody.innerHTML = '';
+            }
+
+            // Create result row
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${address}</td>
+                <td>${result.balance.toFixed(8)} BTC</td>
+                <td>${result.transactionCount}</td>
+                <td>${result.totalReceived.toFixed(8)} BTC</td>
+                <td>${result.totalSent.toFixed(8)} BTC</td>
+                <td class="status-${result.balance > 0 ? 'valuable' : result.transactionCount > 0 ? 'used' : 'new'}">
+                    ${result.balance > 0 ? 'Has balance' : result.transactionCount > 0 ? 'Used' : 'New'}
+                </td>
+            `;
+
+            // Add row to table
+            this.singleCheckResultsBody.appendChild(row);
+            
+            // If address has balance or transactions, add to history
+            if (result.balance > 0 || result.transactionCount > 0) {
+                this.addToHistory({
+                    address: address,
+                    balance: result.balance,
+                    transactionCount: result.transactionCount,
+                    totalReceived: result.totalReceived,
+                    totalSent: result.totalSent,
+                    timestamp: Date.now()
+                });
+            }
+
         } catch (error) {
-            console.error('Error checking address:', error);
-            alert(`Ошибка при проверке адреса: ${error.message}`);
+            console.error('Error checking single address:', error);
+            alert(`Error checking address: ${error.message}`);
         } finally {
-            // Восстанавливаем кнопку
+            // Re-enable input and button
+            this.singleAddressInput.disabled = false;
             this.checkSingleAddressBtn.disabled = false;
-            this.checkSingleAddressBtn.textContent = 'Проверить';
         }
     }
 } 
