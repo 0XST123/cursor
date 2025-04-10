@@ -721,8 +721,8 @@ class WalletFinder {
                             <tr>
                                 <th>#</th>
                                 <th>Адрес</th>
-                                <th>Транзакции</th>
                                 <th>Баланс</th>
+                                <th>Транзакции</th>
                                 <th>Всего отправлено</th>
                                 <th>Всего получено</th>
                                 <th>Статус</th>
@@ -749,8 +749,8 @@ class WalletFinder {
                     row.innerHTML = `
                         <td>1</td>
                         <td>${address}</td>
-                        <td>${result.txs || '0'}</td>
                         <td>${result.balance ? result.balance + ' BTC' : '0 BTC'}</td>
+                        <td>${result.txs || '0'}</td>
                         <td>${result.sent ? result.sent + ' BTC' : '0 BTC'}</td>
                         <td>${result.received ? result.received + ' BTC' : '0 BTC'}</td>
                         <td class="${statusClass}">${statusText}</td>
