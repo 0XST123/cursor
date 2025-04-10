@@ -6,6 +6,7 @@ class CustomPhraseCheck {
         this.checkButton = document.getElementById('checkPhraseBtn');
         this.resultsBody = document.getElementById('phraseResultsBody');
         this.phraseKeyHeader = document.getElementById('phraseKeyHeader');
+        this.displayedAddresses = new Set();
         
         this.checkButton.addEventListener('click', () => this.checkPhrase());
     }
@@ -33,18 +34,21 @@ class CustomPhraseCheck {
             
             // Clear previous results
             this.resultsBody.innerHTML = '';
+            this.displayedAddresses.clear();
             
-            // Check compressed address
-            console.log('Checking compressed address:', addresses.compressed.address);
-            const compressedResult = await this.api.checkAddressDetails(addresses.compressed.address);
-            console.log('Compressed address result:', compressedResult);
-            this.addResultToTable(addresses.compressed.address, compressedResult);
+            // Check both addresses
+            const [compressedResult, uncompressedResult] = await Promise.all([
+                this.checkAddressIfNotDisplayed(addresses.compressed.address),
+                this.checkAddressIfNotDisplayed(addresses.uncompressed.address)
+            ]);
             
-            // Check uncompressed address
-            console.log('Checking uncompressed address:', addresses.uncompressed.address);
-            const uncompressedResult = await this.api.checkAddressDetails(addresses.uncompressed.address);
-            console.log('Uncompressed address result:', uncompressedResult);
-            this.addResultToTable(addresses.uncompressed.address, uncompressedResult);
+            // Add results to table only if they haven't been displayed yet
+            if (compressedResult) {
+                this.addResultToTable(addresses.compressed.address, compressedResult);
+            }
+            if (uncompressedResult) {
+                this.addResultToTable(addresses.uncompressed.address, uncompressedResult);
+            }
             
         } catch (error) {
             console.error('Error checking phrase:', error);
@@ -52,7 +56,19 @@ class CustomPhraseCheck {
         }
     }
 
+    async checkAddressIfNotDisplayed(address) {
+        if (this.displayedAddresses.has(address)) {
+            console.log('Address already displayed, skipping check:', address);
+            return null;
+        }
+        return await this.api.checkAddressDetails(address);
+    }
+
     addResultToTable(address, result) {
+        if (!result || this.displayedAddresses.has(address)) {
+            return;
+        }
+        
         console.log('Adding result to table:', { address, result });
         
         const row = document.createElement('tr');
@@ -78,11 +94,14 @@ class CustomPhraseCheck {
         `;
         
         this.resultsBody.appendChild(row);
+        this.displayedAddresses.add(address);
         console.log('Row added to table');
     }
 }
 
-// Initialize the custom phrase check module
-document.addEventListener('DOMContentLoaded', () => {
-    new CustomPhraseCheck();
-}); 
+// Initialize the custom phrase check module only if not already initialized
+if (!window.customPhraseCheck) {
+    document.addEventListener('DOMContentLoaded', () => {
+        window.customPhraseCheck = new CustomPhraseCheck();
+    });
+} 

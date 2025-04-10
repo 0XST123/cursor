@@ -86,9 +86,6 @@ class WalletFinder {
         if (this.stopBtn) {
             this.stopBtn.addEventListener('click', () => this.stop());
         }
-
-        // Initialize custom phrase check module
-        const customPhraseCheck = new CustomPhraseCheck(this.api);
     }
 
     initializeUI() {
