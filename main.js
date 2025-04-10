@@ -763,8 +763,8 @@ class WalletFinder {
             row.innerHTML = `
                 <td>1</td>
                 <td>${address}</td>
-                <td>${result.transactionCount || '0'}</td>
                 <td>${result.balance ? result.balance + ' BTC' : '0 BTC'}</td>
+                <td>${result.transactionCount || '0'}</td>
                 <td>${result.totalReceived ? result.totalReceived + ' BTC' : '0 BTC'}</td>
                 <td>${result.totalSent ? result.totalSent + ' BTC' : '0 BTC'}</td>
                 <td class="${statusClass}">${statusText}</td>
