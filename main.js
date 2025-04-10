@@ -605,16 +605,18 @@ class WalletFinder {
         // Отображаем историю от новых к старым
         for (const data of this.historyItems) {
             const historyItem = document.createElement('div');
-            historyItem.className = `history-item status-${data.status.type}`;
+            // Определяем статус на основе баланса
+            const statusType = data.balance > 0 ? 'valuable' : 'used';
+            historyItem.className = `history-item status-${statusType}`;
             
             historyItem.innerHTML = `
-                <div>Batch #${data.batchNumber} - ${new Date(data.timestamp).toLocaleString()}</div>
+                <div>${data.batchNumber} - ${new Date(data.timestamp).toLocaleString()}</div>
                 <div>Phrase: ${data.sourcePhrase}</div>
                 <div>Compressed: ${data.compressed.address}</div>
                 <div>Uncompressed: ${data.uncompressed.address}</div>
                 <div>Private Key: ${data.privateKey}</div>
                 <div>Balance: ${data.balance.toFixed(8)} BTC</div>
-                <div>Status: ${data.status.text}</div>
+                <div>Status: ${data.balance > 0 ? 'Has balance' : 'Used'}</div>
             `;
             
             this.historyList.appendChild(historyItem);
