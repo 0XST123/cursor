@@ -723,9 +723,15 @@ class WalletFinder {
             
             console.log('Checking single address:', address);
             
-            // Очищаем предыдущие результаты
+            // Get the results container
             const resultsContainer = document.getElementById('singleAddressResults');
-            if (resultsContainer) {
+            if (!resultsContainer) {
+                console.error('Results container not found');
+                return;
+            }
+
+            // Create table if it doesn't exist
+            if (!resultsContainer.querySelector('table')) {
                 resultsContainer.innerHTML = `
                     <table>
                         <thead>
@@ -734,8 +740,8 @@ class WalletFinder {
                                 <th>Адрес</th>
                                 <th>Баланс</th>
                                 <th>Транзакции</th>
-                                <th>Всего отправлено</th>
                                 <th>Всего получено</th>
+                                <th>Всего отправлено</th>
                                 <th>Статус</th>
                             </tr>
                         </thead>
@@ -744,51 +750,41 @@ class WalletFinder {
                 `;
             }
 
-            this.api.checkAddressDetails(address)
-                .then(result => {
-                    console.log('Check result:', result);
-                    
-                    if (!resultsContainer) return;
-                    
-                    const tbody = resultsContainer.querySelector('tbody');
-                    if (!tbody) return;
+            const result = await this.api.checkAddressDetails(address);
+            console.log('Check result:', result);
 
-                    const row = document.createElement('tr');
-                    const statusText = result.balance > 0 ? 'Has balance' : 'Empty';
-                    const statusClass = result.balance > 0 ? 'status-valuable' : 'status-used';
-                    
-                    row.innerHTML = `
-                        <td>1</td>
-                        <td>${address}</td>
-                        <td>${result.balance ? result.balance + ' BTC' : '0 BTC'}</td>
-                        <td>${result.txs || '0'}</td>
-                        <td>${result.sent ? result.sent + ' BTC' : '0 BTC'}</td>
-                        <td>${result.received ? result.received + ' BTC' : '0 BTC'}</td>
-                        <td class="${statusClass}">${statusText}</td>
-                    `;
-                    
-                    tbody.appendChild(row);
+            const tbody = resultsContainer.querySelector('tbody');
+            if (!tbody) {
+                console.error('Table body not found');
+                return;
+            }
 
-                    // Добавляем в историю
-                    const historyItem = {
-                        address: address,
-                        balance: result.balance,
-                        txs: result.txs,
-                        received: result.received,
-                        sent: result.sent
-                    };
-                    
-                    this.addToHistory(historyItem);
-                })
-                .catch(error => {
-                    console.error('Error checking address:', error);
-                    if (resultsContainer) {
-                        resultsContainer.innerHTML = `<p class="error">Error checking address: ${error.message}</p>`;
-                    }
-                });
+            // Clear previous results
+            tbody.innerHTML = '';
+
+            // Create new row
+            const row = document.createElement('tr');
+            const statusText = result.balance > 0 ? 'Has balance' : 'Empty';
+            const statusClass = result.balance > 0 ? 'status-valuable' : 'status-used';
+
+            row.innerHTML = `
+                <td>1</td>
+                <td>${address}</td>
+                <td>${result.balance ? result.balance + ' BTC' : '0 BTC'}</td>
+                <td>${result.txs || '0'}</td>
+                <td>${result.received ? result.received + ' BTC' : '0 BTC'}</td>
+                <td>${result.sent ? result.sent + ' BTC' : '0 BTC'}</td>
+                <td class="${statusClass}">${statusText}</td>
+            `;
+
+            tbody.appendChild(row);
+
         } catch (error) {
             console.error('Error checking single address:', error);
-            alert(`Error checking address: ${error.message}`);
+            const resultsContainer = document.getElementById('singleAddressResults');
+            if (resultsContainer) {
+                resultsContainer.innerHTML = `<p class="error">Error checking address: ${error.message}</p>`;
+            }
         } finally {
             // Re-enable input and button
             this.singleAddressInput.disabled = false;
