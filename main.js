@@ -723,37 +723,14 @@ class WalletFinder {
             
             console.log('Checking single address:', address);
             
-            // Get the results container
-            const resultsContainer = document.getElementById('singleAddressResults');
-            if (!resultsContainer) {
-                console.error('Results container not found');
+            // Get the results table
+            const resultsTable = document.getElementById('singleCheckResultsTable');
+            if (!resultsTable) {
+                console.error('Results table not found');
                 return;
             }
 
-            // Create table if it doesn't exist
-            if (!resultsContainer.querySelector('table')) {
-                resultsContainer.innerHTML = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Адрес</th>
-                                <th>Баланс</th>
-                                <th>Транзакции</th>
-                                <th>Всего получено</th>
-                                <th>Всего отправлено</th>
-                                <th>Статус</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                `;
-            }
-
-            const result = await this.api.checkAddressDetails(address);
-            console.log('Check result:', result);
-
-            const tbody = resultsContainer.querySelector('tbody');
+            const tbody = resultsTable.querySelector('tbody');
             if (!tbody) {
                 console.error('Table body not found');
                 return;
@@ -761,6 +738,9 @@ class WalletFinder {
 
             // Clear previous results
             tbody.innerHTML = '';
+
+            const result = await this.api.checkAddressDetails(address);
+            console.log('Check result:', result);
 
             // Create new row
             const row = document.createElement('tr');
@@ -770,8 +750,8 @@ class WalletFinder {
             row.innerHTML = `
                 <td>1</td>
                 <td>${address}</td>
-                <td>${result.balance ? result.balance + ' BTC' : '0 BTC'}</td>
                 <td>${result.txs || '0'}</td>
+                <td>${result.balance ? result.balance + ' BTC' : '0 BTC'}</td>
                 <td>${result.received ? result.received + ' BTC' : '0 BTC'}</td>
                 <td>${result.sent ? result.sent + ' BTC' : '0 BTC'}</td>
                 <td class="${statusClass}">${statusText}</td>
@@ -781,9 +761,9 @@ class WalletFinder {
 
         } catch (error) {
             console.error('Error checking single address:', error);
-            const resultsContainer = document.getElementById('singleAddressResults');
-            if (resultsContainer) {
-                resultsContainer.innerHTML = `<p class="error">Error checking address: ${error.message}</p>`;
+            const resultsTable = document.getElementById('singleCheckResultsTable');
+            if (resultsTable) {
+                resultsTable.innerHTML = `<p class="error">Error checking address: ${error.message}</p>`;
             }
         } finally {
             // Re-enable input and button
