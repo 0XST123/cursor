@@ -744,16 +744,29 @@ class WalletFinder {
 
             // Create new row
             const row = document.createElement('tr');
-            const statusText = result.balance > 0 ? 'Has balance' : 'Empty';
-            const statusClass = result.balance > 0 ? 'status-valuable' : 'status-used';
+            
+            // Determine status based on balance and transaction count
+            let statusText;
+            let statusClass;
+            
+            if (result.balance > 0) {
+                statusText = 'Balance';
+                statusClass = 'status-valuable';
+            } else if (result.transactionCount > 0) {
+                statusText = 'Used';
+                statusClass = 'status-used';
+            } else {
+                statusText = 'New';
+                statusClass = 'status-new';
+            }
 
             row.innerHTML = `
                 <td>1</td>
                 <td>${address}</td>
-                <td>${result.txs || '0'}</td>
+                <td>${result.transactionCount || '0'}</td>
                 <td>${result.balance ? result.balance + ' BTC' : '0 BTC'}</td>
-                <td>${result.received ? result.received + ' BTC' : '0 BTC'}</td>
-                <td>${result.sent ? result.sent + ' BTC' : '0 BTC'}</td>
+                <td>${result.totalReceived ? result.totalReceived + ' BTC' : '0 BTC'}</td>
+                <td>${result.totalSent ? result.totalSent + ' BTC' : '0 BTC'}</td>
                 <td class="${statusClass}">${statusText}</td>
             `;
 
