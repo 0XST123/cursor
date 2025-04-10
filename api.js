@@ -99,6 +99,7 @@ class BlockchairAPI {
             }
 
             const addressData = data.data[address];
+            console.log('Raw API response:', JSON.stringify(data, null, 2));
             console.log(`Raw data for ${address}:`, addressData);
             
             if (!addressData) {
@@ -106,11 +107,11 @@ class BlockchairAPI {
             }
 
             const result = {
-                balance: Number(addressData.address?.balance || 0) / 100000000,
-                hasTransactions: Number(addressData.address?.transaction_count || 0) > 0,
-                transactionCount: Number(addressData.address?.transaction_count || 0),
-                totalReceived: Number(addressData.address?.received || 0) / 100000000,
-                totalSent: Number(addressData.address?.spent_approximate || 0) / 100000000
+                balance: Number(addressData.address.balance || 0) / 100000000,
+                hasTransactions: Number(addressData.address.transaction_count || 0) > 0,
+                transactionCount: Number(addressData.address.transaction_count || 0),
+                totalReceived: Number(addressData.address.received || 0) / 100000000,
+                totalSent: Number(addressData.address.spent || 0) / 100000000
             };
             
             console.log(`Processed result for ${address}:`, result);
