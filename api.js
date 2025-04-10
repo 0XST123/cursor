@@ -110,7 +110,7 @@ class BlockchairAPI {
                 hasTransactions: Number(addressData.address?.transaction_count || 0) > 0,
                 transactionCount: Number(addressData.address?.transaction_count || 0),
                 totalReceived: Number(addressData.address?.received || 0) / 100000000,
-                totalSent: Number(addressData.address?.spent || 0) / 100000000
+                totalSent: Number(addressData.address?.spent_approximate || 0) / 100000000
             };
             
             console.log(`Processed result for ${address}:`, result);
