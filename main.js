@@ -352,6 +352,25 @@ class WalletFinder {
         }
     }
 
+    initResultsTable() {
+        const table = document.createElement('table');
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Адрес</th>
+                    <th>Транзакции</th>
+                    <th>Баланс</th>
+                    <th>Всего получено</th>
+                    <th>Всего отправлено</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        `;
+        return table;
+    }
+
     addResultToTable(walletData, checkResult, index) {
         if (!this.resultsBody) return;
 
@@ -375,9 +394,10 @@ class WalletFinder {
             row.innerHTML = `
                 <td>${this.processedCount + 1}</td>
                 <td>${walletData.compressed?.address || 'N/A'}</td>
-                <td>${walletData.uncompressed?.address || 'N/A'}</td>
-                <td>${walletData.privateKey || 'N/A'}</td>
-                <td>${walletData.phrase || 'N/A'}</td>
+                <td>${checkResult.txs || '0'}</td>
+                <td>${checkResult.balance ? checkResult.balance + ' BTC' : '0 BTC'}</td>
+                <td>${checkResult.received ? checkResult.received + ' BTC' : '0 BTC'}</td>
+                <td>${checkResult.sent ? checkResult.sent + ' BTC' : '0 BTC'}</td>
                 <td class="status-${checkResult.status?.type || 'new'}">${checkResult.status?.text || 'New address'}</td>
             `;
 
@@ -604,29 +624,51 @@ class WalletFinder {
 
     // Обновление отображения истории
     updateHistoryDisplay() {
-        if (!this.historyList) return;
+        const historyContainer = document.getElementById('historyContainer');
+        if (!historyContainer) return;
 
-        this.historyList.innerHTML = '';
+        const historyItems = this.getHistoryItems();
         
-        // Отображаем историю от новых к старым
-        for (const data of this.historyItems) {
-            const historyItem = document.createElement('div');
-            // Определяем статус на основе баланса
-            const statusType = data.balance > 0 ? 'valuable' : 'used';
-            historyItem.className = `history-item status-${statusType}`;
-            
-            historyItem.innerHTML = `
-                <div>${data.batchNumber} - ${new Date(data.timestamp).toLocaleString()}</div>
-                <div>Phrase: ${data.sourcePhrase}</div>
-                <div>Compressed: ${data.compressed.address}</div>
-                <div>Uncompressed: ${data.uncompressed.address}</div>
-                <div>Private Key: ${data.privateKey}</div>
-                <div>Balance: ${data.balance.toFixed(8)} BTC</div>
-                <div>Status: ${data.balance > 0 ? 'Has balance' : 'Used'}</div>
-            `;
-            
-            this.historyList.appendChild(historyItem);
+        if (historyItems.length === 0) {
+            historyContainer.innerHTML = '<p>История пуста</p>';
+            return;
         }
+
+        let tableHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Адрес</th>
+                        <th>Транзакции</th>
+                        <th>Баланс</th>
+                        <th>Всего получено</th>
+                        <th>Всего отправлено</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        historyItems.forEach((item, index) => {
+            const statusClass = item.balance > 0 ? 'status-valuable' : 'status-used';
+            const statusText = item.balance > 0 ? 'Has balance' : 'Empty';
+            
+            tableHTML += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${item.address}</td>
+                    <td>${item.txs || '0'}</td>
+                    <td>${item.balance ? item.balance + ' BTC' : '0 BTC'}</td>
+                    <td>${item.received ? item.received + ' BTC' : '0 BTC'}</td>
+                    <td>${item.sent ? item.sent + ' BTC' : '0 BTC'}</td>
+                    <td class="${statusClass}">${statusText}</td>
+                </tr>
+            `;
+        });
+
+        tableHTML += '</tbody></table>';
+        historyContainer.innerHTML = tableHTML;
     }
 
     exportHistory() {
@@ -670,82 +712,69 @@ class WalletFinder {
             
             console.log('Checking single address:', address);
             
-            // Get detailed information about the address
-            const result = await this.api.checkAddressDetails(address);
-            console.log('Check result:', result);
-            
-            if (result.error) {
-                throw new Error(result.error);
+            // Очищаем предыдущие результаты
+            const resultsContainer = document.getElementById('singleAddressResults');
+            if (resultsContainer) {
+                resultsContainer.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Адрес</th>
+                                <th>Транзакции</th>
+                                <th>Баланс</th>
+                                <th>Всего отправлено</th>
+                                <th>Всего получено</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                `;
             }
 
-            // Clear previous results
-            if (this.singleCheckResultsBody) {
-                this.singleCheckResultsBody.innerHTML = '';
-            }
+            this.api.checkAddressDetails(address)
+                .then(result => {
+                    console.log('Check result:', result);
+                    
+                    if (!resultsContainer) return;
+                    
+                    const tbody = resultsContainer.querySelector('tbody');
+                    if (!tbody) return;
 
-            // Create result row
-            const row = document.createElement('tr');
-            
-            // Get status text and class
-            let statusText = 'New address';
-            let statusClass = 'new';
-            if (result.balance > 0) {
-                statusText = 'Has balance';
-                statusClass = 'valuable';
-            } else if (result.transactionCount > 0) {
-                statusText = 'Used';
-                statusClass = 'used';
-            }
+                    const row = document.createElement('tr');
+                    const statusText = result.balance > 0 ? 'Has balance' : 'Empty';
+                    const statusClass = result.balance > 0 ? 'status-valuable' : 'status-used';
+                    
+                    row.innerHTML = `
+                        <td>1</td>
+                        <td>${address}</td>
+                        <td>${result.txs || '0'}</td>
+                        <td>${result.balance ? result.balance + ' BTC' : '0 BTC'}</td>
+                        <td>${result.sent ? result.sent + ' BTC' : '0 BTC'}</td>
+                        <td>${result.received ? result.received + ' BTC' : '0 BTC'}</td>
+                        <td class="${statusClass}">${statusText}</td>
+                    `;
+                    
+                    tbody.appendChild(row);
 
-            // Добавляем строку с правильной структурой
-            const rowNumber = this.singleCheckResultsBody ? this.singleCheckResultsBody.children.length + 1 : 1;
-            row.innerHTML = `
-                <td>${rowNumber}</td>
-                <td>${address}</td>
-                <td>${result.transactionCount}</td>
-                <td>${result.totalReceived.toFixed(8)} BTC</td>
-                <td>${result.totalSent.toFixed(8)} BTC</td>
-                <td>${result.balance.toFixed(8)} BTC</td>
-                <td class="status-${statusClass}">${statusText}</td>
-            `;
-
-            // Add row to single check results table
-            if (this.singleCheckResultsBody) {
-                // Добавляем в начало таблицы
-                if (this.singleCheckResultsBody.firstChild) {
-                    this.singleCheckResultsBody.insertBefore(row, this.singleCheckResultsBody.firstChild);
-                } else {
-                    this.singleCheckResultsBody.appendChild(row);
-                }
-            }
-            
-            // If address has balance or transactions, add to history
-            if (result.balance > 0 || result.transactionCount > 0) {
-                const historyItem = {
-                    batchNumber: 'Manual check',
-                    compressed: {
+                    // Добавляем в историю
+                    const historyItem = {
                         address: address,
-                        status: {
-                            type: statusClass,
-                            text: statusText
-                        }
-                    },
-                    uncompressed: {
-                        address: 'N/A',
-                        status: {
-                            type: 'new',
-                            text: 'Not checked'
-                        }
-                    },
-                    privateKey: 'N/A',
-                    sourcePhrase: 'Manual check',
-                    balance: result.balance,
-                    timestamp: Date.now()
-                };
-                
-                this.addToHistory(historyItem);
-            }
-
+                        balance: result.balance,
+                        txs: result.txs,
+                        received: result.received,
+                        sent: result.sent
+                    };
+                    
+                    this.addToHistory(historyItem);
+                })
+                .catch(error => {
+                    console.error('Error checking address:', error);
+                    if (resultsContainer) {
+                        resultsContainer.innerHTML = `<p class="error">Error checking address: ${error.message}</p>`;
+                    }
+                });
         } catch (error) {
             console.error('Error checking single address:', error);
             alert(`Error checking address: ${error.message}`);
