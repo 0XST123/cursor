@@ -17,10 +17,15 @@ class BlockchairAPI {
             await this.waitForRateLimit();
             console.log('Rate limit check passed, proceeding with API call');
             
-            const url = `${this.baseUrl}/dashboards/address/${address}?key=${this.apiKey}`;
-            console.log('Making API request to:', url.replace(this.apiKey, '[REDACTED]'));
+            const url = `${this.baseUrl}/dashboards/address/${address}`;
+            console.log('Making API request to:', url);
             
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-API-KEY': this.apiKey
+                }
+            });
             console.log('API Response Status:', response.status);
             
             if (!response.ok) {
