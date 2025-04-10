@@ -637,4 +637,92 @@ button:disabled {
 /* Стили для поля ввода адреса */
 #singleAddressInput {
     font-family: monospace;
+}
+
+/* Custom Phrase Check Module */
+#customPhraseCheck {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+#customPhraseInput {
+    font-size: 16px;
+    padding: 10px;
+    width: calc(100% - 120px);
+}
+
+#generateFromPhraseBtn {
+    width: 120px;
+}
+
+.phrase-group {
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.phrase-header {
+    padding: 12px 15px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #ddd;
+}
+
+.phrase-label {
+    font-weight: 600;
+    color: #495057;
+    margin-right: 10px;
+}
+
+.phrase-value {
+    font-family: monospace;
+    color: #2c3e50;
+}
+
+.address-details {
+    padding: 15px;
+}
+
+.address-row {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.address-row:last-child {
+    border-bottom: none;
+}
+
+.field-label {
+    font-weight: 500;
+    color: #666;
+}
+
+.field-value {
+    font-family: monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.field-value:hover {
+    overflow: visible;
+    white-space: normal;
+    background: #fff;
+    position: relative;
+    z-index: 1;
+}
+
+.address-type {
+    font-weight: 600;
+    color: #2c3e50;
+    padding: 10px 0;
+    margin-top: 10px;
+    border-bottom: 2px solid #eee;
+}
+
+.address-type:first-child {
+    margin-top: 0;
 } 

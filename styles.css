@@ -1,0 +1,103 @@
+/* Custom Phrase Check Styles */
+.custom-phrase-check {
+    margin: 20px 0;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #fff;
+}
+
+.custom-phrase-check h2 {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.custom-phrase-check .input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.custom-phrase-check input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.custom-phrase-check button {
+    padding: 8px 16px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.custom-phrase-check button:hover {
+    background-color: #0056b3;
+}
+
+.custom-phrase-check .results-container {
+    overflow-x: auto;
+}
+
+.custom-phrase-check table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.custom-phrase-check th {
+    background-color: #f8f9fa;
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.custom-phrase-check td {
+    padding: 12px;
+    border-bottom: 1px solid #dee2e6;
+    font-size: 14px;
+}
+
+.custom-phrase-check #phraseKeyHeader {
+    background-color: #e9ecef;
+    font-family: monospace;
+    font-size: 14px;
+    padding: 15px;
+}
+
+.custom-phrase-check .address-cell {
+    font-family: monospace;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.custom-phrase-check .balance-cell {
+    text-align: right;
+    font-family: monospace;
+}
+
+.custom-phrase-check .status-valuable {
+    color: #28a745;
+    font-weight: 600;
+}
+
+.custom-phrase-check .status-used {
+    color: #ffc107;
+    font-weight: 600;
+}
+
+.custom-phrase-check .status-empty {
+    color: #6c757d;
+}
+
+.custom-phrase-check tr:hover {
+    background-color: #f8f9fa;
+} 

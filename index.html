@@ -137,6 +137,37 @@
                 </table>
             </div>
         </div>
+
+        <!-- Custom Phrase Check -->
+        <div class="custom-phrase-check">
+            <h2>Custom Phrase Check</h2>
+            <div class="input-group">
+                <input type="text" id="phraseInput" placeholder="Enter phrase">
+                <button id="checkPhraseBtn">Check</button>
+            </div>
+            <div class="results-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th colspan="6" id="phraseKeyHeader">Phrase / Private Key</th>
+                        </tr>
+                        <tr>
+                            <th>Address</th>
+                            <th>Balance</th>
+                            <th>Transactions</th>
+                            <th>Received</th>
+                            <th>Sent</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="phraseResultsBody"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
+    <script src="api.js"></script>
+    <script src="wallet.js"></script>
+    <script src="main.js"></script>
+    <script src="custom_phrase_check.js"></script>
 </body>
 </html> 
