@@ -664,6 +664,7 @@ class WalletFinder {
             
             // Get detailed information about the address
             const result = await this.api.checkAddressDetails(address);
+            console.log('Check result:', result);
             
             if (result.error) {
                 throw new Error(result.error);
@@ -676,30 +677,57 @@ class WalletFinder {
 
             // Create result row
             const row = document.createElement('tr');
+            
+            // Get status text
+            let statusText = 'New address';
+            let statusClass = 'new';
+            if (result.balance > 0) {
+                statusText = 'Has balance';
+                statusClass = 'valuable';
+            } else if (result.transactionCount > 0) {
+                statusText = 'Used';
+                statusClass = 'used';
+            }
+
             row.innerHTML = `
                 <td>${address}</td>
                 <td>${result.balance.toFixed(8)} BTC</td>
                 <td>${result.transactionCount}</td>
                 <td>${result.totalReceived.toFixed(8)} BTC</td>
                 <td>${result.totalSent.toFixed(8)} BTC</td>
-                <td class="status-${result.balance > 0 ? 'valuable' : result.transactionCount > 0 ? 'used' : 'new'}">
-                    ${result.balance > 0 ? 'Has balance' : result.transactionCount > 0 ? 'Used' : 'New'}
-                </td>
+                <td class="status-${statusClass}">${statusText}</td>
             `;
 
             // Add row to table
-            this.singleCheckResultsBody.appendChild(row);
+            if (this.singleCheckResultsBody) {
+                this.singleCheckResultsBody.appendChild(row);
+            }
             
             // If address has balance or transactions, add to history
             if (result.balance > 0 || result.transactionCount > 0) {
-                this.addToHistory({
-                    address: address,
+                const historyItem = {
+                    batchNumber: 'Manual check',
+                    compressed: {
+                        address: address,
+                        status: {
+                            type: statusClass,
+                            text: statusText
+                        }
+                    },
+                    uncompressed: {
+                        address: 'N/A',
+                        status: {
+                            type: 'new',
+                            text: 'Not checked'
+                        }
+                    },
+                    privateKey: 'N/A',
+                    sourcePhrase: 'Manual check',
                     balance: result.balance,
-                    transactionCount: result.transactionCount,
-                    totalReceived: result.totalReceived,
-                    totalSent: result.totalSent,
                     timestamp: Date.now()
-                });
+                };
+                
+                this.addToHistory(historyItem);
             }
 
         } catch (error) {
