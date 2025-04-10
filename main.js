@@ -356,7 +356,13 @@ class WalletFinder {
         if (!this.resultsBody) return;
 
         try {
-            console.log('Adding result to table:', { walletData, checkResult, index });
+            // Проверяем, что это результат пакетной проверки
+            if (!walletData.compressed || !walletData.uncompressed) {
+                console.log('Skipping non-batch result');
+                return;
+            }
+
+            console.log('Adding batch result to table:', { walletData, checkResult, index });
             
             // Очищаем таблицу если количество строк превышает 20
             if (this.resultsBody.children.length >= 20) {
@@ -680,7 +686,7 @@ class WalletFinder {
             // Create result row
             const row = document.createElement('tr');
             
-            // Get status text
+            // Get status text and class
             let statusText = 'New address';
             let statusClass = 'new';
             if (result.balance > 0) {
@@ -691,18 +697,26 @@ class WalletFinder {
                 statusClass = 'used';
             }
 
+            // Добавляем строку с правильной структурой
+            const rowNumber = this.singleCheckResultsBody ? this.singleCheckResultsBody.children.length + 1 : 1;
             row.innerHTML = `
+                <td>${rowNumber}</td>
                 <td>${address}</td>
-                <td>${result.balance.toFixed(8)} BTC</td>
                 <td>${result.transactionCount}</td>
                 <td>${result.totalReceived.toFixed(8)} BTC</td>
                 <td>${result.totalSent.toFixed(8)} BTC</td>
+                <td>${result.balance.toFixed(8)} BTC</td>
                 <td class="status-${statusClass}">${statusText}</td>
             `;
 
-            // Add row to table
+            // Add row to single check results table
             if (this.singleCheckResultsBody) {
-                this.singleCheckResultsBody.appendChild(row);
+                // Добавляем в начало таблицы
+                if (this.singleCheckResultsBody.firstChild) {
+                    this.singleCheckResultsBody.insertBefore(row, this.singleCheckResultsBody.firstChild);
+                } else {
+                    this.singleCheckResultsBody.appendChild(row);
+                }
             }
             
             // If address has balance or transactions, add to history
