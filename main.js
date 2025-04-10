@@ -397,7 +397,7 @@ class WalletFinder {
                 <td>${walletData.uncompressed?.address || 'N/A'}</td>
                 <td>${walletData.privateKey || 'N/A'}</td>
                 <td>${walletData.phrase || 'N/A'}</td>
-                <td class="status-${checkResult.status?.type || 'new'}">${checkResult.status?.text || 'New address'}</td>
+                <td>${checkResult.balance ? checkResult.balance + ' BTC' : '0 BTC'}</td>
             `;
 
             // Добавляем строку в начало таблицы
@@ -452,16 +452,35 @@ class WalletFinder {
     }
 
     addToHistory(data) {
-        // Проверяем, не существует ли уже такой адрес
-        const isDuplicate = this.historyItems.some(item => 
-            item.compressed.address === data.compressed.address || 
-            item.uncompressed.address === data.uncompressed.address
-        );
+        console.log('Adding to history:', data);
 
-        if (isDuplicate) return;
+        // Проверяем формат данных (пакетная проверка или одиночная)
+        if (data.compressed || data.uncompressed) {
+            // Пакетная проверка
+            const isDuplicate = this.historyItems.some(item => 
+                (item.compressed && item.compressed.address === data.compressed.address) || 
+                (item.uncompressed && item.uncompressed.address === data.uncompressed.address)
+            );
+
+            if (isDuplicate) {
+                console.log('Duplicate wallet found, skipping');
+                return;
+            }
+        } else {
+            // Одиночная проверка
+            const isDuplicate = this.historyItems.some(item => 
+                item.address === data.address
+            );
+
+            if (isDuplicate) {
+                console.log('Duplicate address found, skipping');
+                return;
+            }
+        }
 
         // Добавляем новый элемент в начало массива
         this.historyItems.unshift(data);
+        console.log('Added to history:', data);
 
         // Обновляем отображение и сохраняем в localStorage
         this.updateHistoryDisplay();
@@ -626,9 +645,7 @@ class WalletFinder {
         const historyContainer = document.getElementById('historyContainer');
         if (!historyContainer) return;
 
-        const historyItems = this.getHistoryItems();
-        
-        if (historyItems.length === 0) {
+        if (this.historyItems.length === 0) {
             historyContainer.innerHTML = '<p>История пуста</p>';
             return;
         }
@@ -638,30 +655,25 @@ class WalletFinder {
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Адрес</th>
-                        <th>Транзакции</th>
-                        <th>Баланс</th>
-                        <th>Всего получено</th>
-                        <th>Всего отправлено</th>
-                        <th>Статус</th>
+                        <th>Compressed</th>
+                        <th>Uncompressed</th>
+                        <th>Private Key</th>
+                        <th>Phrase</th>
+                        <th>Balance</th>
                     </tr>
                 </thead>
                 <tbody>
         `;
 
-        historyItems.forEach((item, index) => {
-            const statusClass = item.balance > 0 ? 'status-valuable' : 'status-used';
-            const statusText = item.balance > 0 ? 'Has balance' : 'Empty';
-            
+        this.historyItems.forEach((item, index) => {
             tableHTML += `
                 <tr>
                     <td>${index + 1}</td>
-                    <td>${item.address}</td>
-                    <td>${item.txs || '0'}</td>
+                    <td>${item.compressed?.address || 'N/A'}</td>
+                    <td>${item.uncompressed?.address || 'N/A'}</td>
+                    <td>${item.privateKey || 'N/A'}</td>
+                    <td>${item.phrase || 'N/A'}</td>
                     <td>${item.balance ? item.balance + ' BTC' : '0 BTC'}</td>
-                    <td>${item.received ? item.received + ' BTC' : '0 BTC'}</td>
-                    <td>${item.sent ? item.sent + ' BTC' : '0 BTC'}</td>
-                    <td class="${statusClass}">${statusText}</td>
                 </tr>
             `;
         });
