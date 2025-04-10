@@ -2,7 +2,7 @@
 class BlockchairAPI {
     constructor() {
         this.apiKey = 'A___XlvcUCcOjwiFTR2rRKASglriL77n';
-        this.baseUrl = 'https://api.blockchair.com/bitcoin';
+        this.baseUrl = 'https://api.blockchair.com';
         this.requestLimit = 30;
         this.requestCount = 0;
         this.lastRequestTime = 0;
@@ -17,16 +17,23 @@ class BlockchairAPI {
             await this.waitForRateLimit();
             console.log('Rate limit check passed, proceeding with API call');
             
-            const url = `${this.baseUrl}/dashboards/address/${address}`;
-            console.log('Making API request to:', url);
+            const url = new URL(`${this.baseUrl}/bitcoin/dashboards/address/${address}`);
+            url.searchParams.append('key', this.apiKey);
+            
+            console.log('Making API request to:', url.toString().replace(this.apiKey, '[REDACTED]'));
             
             const response = await fetch(url, {
+                method: 'GET',
                 headers: {
-                    'Accept': 'application/json',
-                    'X-API-KEY': this.apiKey
+                    'Accept': 'application/json'
                 }
             });
+            
             console.log('API Response Status:', response.status);
+            
+            if (response.status === 430 || response.status === 403) {
+                throw new Error('API access denied. Please check your API key and permissions.');
+            }
             
             if (!response.ok) {
                 throw new Error(`API request failed: ${response.status} ${response.statusText}`);
